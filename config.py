@@ -1,0 +1,18 @@
+default_config = dict(
+    batch_size=32,
+    gamma=1.0,
+    temperature=0.1,
+    polyak_coef=0.95,
+    random_action_prob=0.1,
+    n_start_steps=1000,
+    update_target_every_n_steps=500,
+    log_every_n_steps=100,
+    checkpoint_every_n_steps=1000,
+    n_env_steps_per_rl_update=1,
+    buffer_size=50000,
+    lr=5e-4,
+    render=False,
+    env_id='InvertedPendulum-v2',
+    train_n_steps=1e5,
+    seed=0,
+)
