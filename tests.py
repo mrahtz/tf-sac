@@ -2,9 +2,10 @@ import unittest
 
 import numpy as np
 import tensorflow as tf
+from matplotlib.pyplot import hist, show, legend, plot, subplot, ylim, title
 
 from model import SACModel
-from policies import diagonal_gaussian_log_prob
+from policies import diagonal_gaussian_log_prob, tanh_diagonal_gaussian_sample, tanh_diagonal_gaussian_log_prob
 from utils import tf_disable_warnings, tf_disable_deprecation_warnings
 
 tf_disable_warnings()
@@ -71,6 +72,37 @@ class UnitTests(unittest.TestCase):
         self._test_gaussian_log_prob_finite(mean=2, std=0.01)
         self._test_gaussian_log_prob_finite(mean=2, std=0.001)
         self._test_gaussian_log_prob_finite(mean=2, std=1e-8)
+
+    def manual_test_tanh_gaussian(self):
+        n_samples = 100000
+        mean = 0.0
+        std = 1.0
+        log_std = np.log(std).astype(np.float32)
+
+        expected_samples = np.tanh(np.random.normal(loc=mean, scale=std, size=[n_samples, 1]))
+
+        sample = tanh_diagonal_gaussian_sample(mean=[0] * n_samples, log_std=[log_std] * n_samples)
+        sess = tf.Session()
+        actual_samples = sess.run(sample)
+
+        subplot(1, 2, 1)
+        title('Samples')
+        hist(expected_samples, bins=100, alpha=0.5, density=True, label='Expected')
+        hist(actual_samples, bins=100, alpha=0.5, density=True, label='Actual')
+        legend()
+        y_min, y_max = ylim()
+
+        tanh_gaussian_sample_values = np.linspace([-0.99], [0.99], num=100, axis=0)
+        ph = tf.placeholder(tf.float32, [None, 1])
+        log_probs = tanh_diagonal_gaussian_log_prob(ph, mean=0, log_std=log_std)
+        calculated_log_probs = sess.run(log_probs, feed_dict={ph: tanh_gaussian_sample_values})
+        calculated_probs = np.exp(calculated_log_probs)
+
+        subplot(1, 2, 2)
+        title('Calculated PDF')
+        plot(tanh_gaussian_sample_values, calculated_probs)
+        ylim([y_min, y_max])
+        show()
 
     @staticmethod
     def _test_gaussian_log_prob_correct(mean, std):
