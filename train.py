@@ -80,9 +80,10 @@ def main(gamma, buffer_size, lr, render, seed, env_id, polyak_coef, temperature)
     buffer = ReplayBuffer(env.observation_space.shape, max_size=buffer_size)
     obs_dim = env.observation_space.shape[0]
     n_actions = env.action_space.shape[0]
+    act_lim = env.action_space.high
     ckpt_dir = os.path.join(observer.dir, 'checkpoints')
-    model = SACModel(obs_dim=obs_dim, n_actions=n_actions, save_dir=ckpt_dir,
-                     discount=gamma, lr=lr, seed=seed, polyak_coef=polyak_coef, temperature=temperature)
+    model = SACModel(obs_dim=obs_dim, n_actions=n_actions, act_lim=act_lim, save_dir=ckpt_dir,
+                     discount=gamma, lr=lr, seed=seed, polyak_coef=polyak_coef, temperature=temperature, )
     model.save()
 
     ctx = multiprocessing.get_context('spawn')

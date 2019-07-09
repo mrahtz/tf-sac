@@ -7,43 +7,53 @@ from tensorflow.python.keras.layers import Dense, Lambda
 
 from utils import get_features_model
 
-Policy = namedtuple('Policy', 'pi log_prob_pi')
+Policy = namedtuple('Policy', 'mean log_std pi log_prob_pi')
 
 
-def get_diagonal_gaussian_model(obs_dim, n_actions):
+def get_diagonal_gaussian_model(obs_dim: int, n_actions: int, act_lim: np.ndarray):
+    assert act_lim.shape == (n_actions,)
+
     obs = Input(shape=(obs_dim,))
     features_model = get_features_model(obs_dim)
     features = features_model(obs)
     mean = Dense(n_actions, activation=None, name='fc_mean')(features)
-    # Standard deviation must be non-negative.
-    # Instead of trying to incorporate that constraint into training,
-    # it's easier to have the network output the log standard deviation
-    # (which has no constraints) and then take the exp.
     log_std = Dense(n_actions, activation=None, name='fc_std')(features)
 
-    pi = TanhDiagonalGaussianSample([mean, log_std])
+    pi = DiagonalGaussianSample([mean, log_std])
+    pi = Lambda(lambda x: tf.tanh(x))(pi)
     log_prob_pi = TanhDiagonalGaussianLogProb([pi, mean, log_std])
+    pi = Lambda(lambda x: x * act_lim, name='pi_scale')(pi)
 
-    pi_model = Model(inputs=obs, outputs=pi)
-    log_prob_pi_model = Model(inputs=obs, outputs=log_prob_pi)
+    mean_model = Model(inputs=[obs], outputs=[mean])
+    log_std_model = Model(inputs=[obs], outputs=[log_std])
+    pi_model = Model(inputs=[obs], outputs=[pi])
+    log_prob_pi_model = Model(inputs=[obs], outputs=[log_prob_pi])
 
-    return Policy(pi_model, log_prob_pi_model)
+    return Policy(mean=mean_model,
+                  log_std=log_std_model,
+                  pi=pi_model,
+                  log_prob_pi=log_prob_pi_model)
 
 
-TanhDiagonalGaussianSample = Lambda(
-    lambda mean_logstd_tup: diagonal_gaussian_sample(mean=mean_logstd_tup[0],
-                                                     log_std=mean_logstd_tup[1])
+DiagonalGaussianSample = Lambda(
+    name='act_sample',
+    function=lambda mean_logstd_tup: diagonal_gaussian_sample(mean=mean_logstd_tup[0],
+                                                              log_std=mean_logstd_tup[1]),
 )
 
 TanhDiagonalGaussianLogProb = Lambda(
-    lambda pi_mean_logstd_tup: tanh_diagonal_gaussian_log_prob(tanh_gaussian_samples=pi_mean_logstd_tup[0],
-                                                               mean=pi_mean_logstd_tup[1],
-                                                               log_std=pi_mean_logstd_tup[2])
+    name='act_prob',
+    function=lambda pi_mean_logstd_tup: tanh_diagonal_gaussian_log_prob(tanh_gaussian_samples=pi_mean_logstd_tup[0],
+                                                                        mean=pi_mean_logstd_tup[1],
+                                                                        log_std=pi_mean_logstd_tup[2]),
 )
 
 
-def tanh_diagonal_gaussian_sample(mean, log_std):
-    return tf.tanh(diagonal_gaussian_sample(mean, log_std))
+def diagonal_gaussian_sample(mean, log_std):
+    eps = tf.random.normal(tf.shape(mean))
+    std = tf.exp(log_std)
+    sample = mean + std * eps
+    return sample
 
 
 def tanh_diagonal_gaussian_log_prob(tanh_gaussian_samples, mean, log_std):
@@ -52,13 +62,6 @@ def tanh_diagonal_gaussian_log_prob(tanh_gaussian_samples, mean, log_std):
     log_prob = diagonal_gaussian_log_prob(gaussian_sample, mean, log_std)
     log_prob -= tf.reduce_sum(tf.log(1 - tanh_gaussian_samples ** 2), axis=1, keepdims=True)
     return log_prob
-
-
-def diagonal_gaussian_sample(mean, log_std):
-    eps = tf.random.normal(tf.shape(mean))
-    std = tf.exp(log_std)
-    sample = mean + std * eps
-    return sample
 
 
 def diagonal_gaussian_log_prob(gaussian_samples, mean, log_std):
