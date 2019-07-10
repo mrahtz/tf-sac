@@ -3,7 +3,6 @@ default_config = dict(
     gamma=1.0,
     temperature=0.1,
     polyak_coef=0.95,
-    random_action_prob=0.1,
     n_start_steps=1000,
     update_target_every_n_steps=500,
     log_every_n_steps=100,
