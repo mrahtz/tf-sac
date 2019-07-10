@@ -33,7 +33,7 @@ def get_min_q12_model(obs_dim, n_actions, q1, q2):
 class SACModel:
 
     def __init__(self, obs_dim, n_actions, act_lim, seed, discount, temperature, polyak_coef, lr, save_dir=None):
-        self.args = self.prepare_args(locals())
+        self.args_copy = self.args_from_locals(locals())
         self.n_actions = n_actions
         self.save_dir = save_dir
 
@@ -125,13 +125,13 @@ class SACModel:
         self.q_loss = q1_loss + q2_loss
 
     @staticmethod
-    def prepare_args(locals_dict):
+    def args_from_locals(locals_dict):
         locals_dict = dict(locals_dict)
         del locals_dict['self']
         locals_dict['save_dir'] = None
         return locals_dict
 
-    def step(self, obs, deterministic=False):
+    def step(self, obs, deterministic):
         assert obs.shape == (self.obs_dim,)
         if deterministic:
             action_op = self.mu_obs1
@@ -163,7 +163,7 @@ class SACModel:
         names = [p.name for p in params]
         values = self.sess.run(params)
         params = {k: v for k, v in zip(names, values)}
-        state = self.args, params
+        state = self.args_copy, params
         return state
 
     def __setstate__(self, state):

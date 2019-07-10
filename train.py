@@ -23,7 +23,7 @@ ex.add_config(config.default_config)
 
 @ex.capture
 def train_sac(buffer: ReplayBuffer, model: SACModel, train_env,
-              batch_size, n_start_steps, log_every_n_steps, checkpoint_every_n_steps,
+              batch_size, n_start_env_steps, log_every_n_steps, checkpoint_every_n_steps,
               train_n_steps):
     n_steps = 0
     obs1, done = train_env.reset(), False
@@ -32,14 +32,18 @@ def train_sac(buffer: ReplayBuffer, model: SACModel, train_env,
     losses = []
 
     while n_steps < train_n_steps:
-        act = model.step(obs1)
-        obs2, reward, done, info = train_env.step(act)
+        if len(buffer) < n_start_env_steps:
+            act = train_env.action_space.sample()
+        else:
+            act = model.step(obs1, deterministic=False)
+
+        obs2, reward, done, _ = train_env.step(act)
         buffer.store(obs1=obs1, acts=act, rews=reward, obs2=obs2, done=float(done))
         obs1 = obs2
         if done:
             obs1, done = train_env.reset(), False
 
-        if len(buffer) < n_start_steps:
+        if len(buffer) < n_start_env_steps:
             continue
 
         batch = buffer.sample(batch_size=batch_size)
