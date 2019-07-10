@@ -24,7 +24,7 @@ ex.add_config(config.default_config)
 @ex.capture
 def train_sac(buffer: ReplayBuffer, model: SACModel, train_env,
               batch_size, n_start_steps, log_every_n_steps, checkpoint_every_n_steps,
-              train_n_steps, n_env_steps_per_rl_update):
+              train_n_steps):
     n_steps = 0
     obs1, done = train_env.reset(), False
     logger = easy_tf_log.Logger(os.path.join(observer.dir, 'sac'))
@@ -42,10 +42,9 @@ def train_sac(buffer: ReplayBuffer, model: SACModel, train_env,
         if len(buffer) < n_start_steps:
             continue
 
-        if n_steps % n_env_steps_per_rl_update == 0:
-            batch = buffer.sample(batch_size=batch_size)
-            loss = model.train(batch)
-            losses.append(loss)
+        batch = buffer.sample(batch_size=batch_size)
+        loss = model.train(batch)
+        losses.append(loss)
 
         if n_steps % checkpoint_every_n_steps == 0:
             model.save()
@@ -84,7 +83,7 @@ def main(gamma, buffer_size, lr, render, seed, env_id, polyak_coef, temperature)
     act_lim = env.action_space.high
     ckpt_dir = os.path.join(observer.dir, 'checkpoints')
     model = SACModel(obs_dim=obs_dim, n_actions=n_actions, act_lim=act_lim, save_dir=ckpt_dir,
-                     discount=gamma, lr=lr, seed=seed, polyak_coef=polyak_coef, temperature=temperature, )
+                     discount=gamma, lr=lr, seed=seed, polyak_coef=polyak_coef, temperature=temperature)
     model.save()
 
     ctx = multiprocessing.get_context('spawn')

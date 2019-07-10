@@ -36,7 +36,7 @@ class RateMeasure:
         return rate
 
 
-def get_features_model(n_inputs, n_hidden=(64, 64)):
+def get_features_model(n_inputs, n_hidden=(256, 256)):
     obs = Input(shape=[n_inputs])
     h = obs
     for n, n_h in enumerate(n_hidden):
