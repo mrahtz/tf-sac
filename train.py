@@ -44,7 +44,8 @@ def train_sac(buffer: ReplayBuffer, model: SACModel, train_env,
 
         if n_steps % n_env_steps_per_rl_update == 0:
             batch = buffer.sample(batch_size=batch_size)
-            model.train(batch)
+            loss = model.train(batch)
+            losses.append(loss)
 
         if n_steps % checkpoint_every_n_steps == 0:
             model.save()

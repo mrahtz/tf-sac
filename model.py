@@ -120,6 +120,7 @@ class SACModel:
         self.obs_dim = obs_dim
         self.v_targ_polyak_update_op = v_targ_polyak_update_op
         self.pi = pi
+        self.q_loss = q1_loss + q2_loss
 
     @staticmethod
     def prepare_args(locals_dict):
@@ -134,12 +135,12 @@ class SACModel:
         return action
 
     def train(self, batch: ReplayBatch):
-        _, loss = self.sess.run([self.train_ops, self.v_targ_polyak_update_op],
-                                feed_dict={self.obs1: batch.obs1,
-                                           self.acts: batch.acts,
-                                           self.rews: batch.rews,
-                                           self.obs2: batch.obs2,
-                                           self.done: batch.done})
+        _, _, loss = self.sess.run([self.train_ops, self.v_targ_polyak_update_op, self.q_loss],
+                                   feed_dict={self.obs1: batch.obs1,
+                                              self.acts: batch.acts,
+                                              self.rews: batch.rews,
+                                              self.obs2: batch.obs2,
+                                              self.done: batch.done})
         return loss
 
     def save(self):
