@@ -68,7 +68,7 @@ def run_test_env(model, model_load_dir, render, env_id, seed, log_dir):
         model.load(model_load_dir)
         obs, done, rewards = env.reset(), False, []
         while not done:
-            action = model.step(obs, random_action_prob=0)
+            action = model.step(obs, deterministic=True)
             if render:
                 env.render()
             obs, reward, done, info = env.step(action)

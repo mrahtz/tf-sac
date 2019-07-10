@@ -50,6 +50,7 @@ class SACModel:
             policy = get_diagonal_gaussian_model(obs_dim=obs_dim,
                                                  n_actions=n_actions,
                                                  act_lim=act_lim)
+            mu = policy.mean
             pi = policy.pi
             log_prob_pi = policy.log_prob_pi
 
@@ -109,6 +110,7 @@ class SACModel:
             self.v_main_obs1 = v_main(obs1)
             self.v_targ_obs1 = v_targ(obs1)
             self.pi_obs1 = pi(obs1)
+            self.mu_obs1 = mu(obs1)
 
         self.obs1 = obs1
         self.obs2 = obs2
@@ -129,9 +131,13 @@ class SACModel:
         locals_dict['save_dir'] = None
         return locals_dict
 
-    def step(self, obs):
+    def step(self, obs, deterministic=False):
         assert obs.shape == (self.obs_dim,)
-        action = self.sess.run(self.pi_obs1, feed_dict={self.obs1: [obs]})[0]
+        if deterministic:
+            action_op = self.mu_obs1
+        else:
+            action_op = self.pi_obs1
+        action = self.sess.run(action_op, feed_dict={self.obs1: [obs]})[0]
         return action
 
     def train(self, batch: ReplayBatch):
