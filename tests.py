@@ -52,7 +52,7 @@ class UnitTests(unittest.TestCase):
         v_main = self._get_v_main(model, obs)
         v_targ = self._get_v_targ(model, obs)
         delta = abs(v_main - v_targ)
-        self.assertGreater(delta, 0.15)
+        self.assertGreater(delta, 0.1)
         for _ in range(20):
             model.sess.run(model.v_targ_polyak_update_op)
         v_targ = self._get_v_targ(model, obs)
@@ -97,13 +97,20 @@ class UnitTests(unittest.TestCase):
 
     @staticmethod
     def _get_tanh_gaussian_pdf(log_std):
-        tanh_gaussian_sample_values = np.linspace([-0.99], [0.99], num=100, axis=0)
-        ph = tf.placeholder(tf.float32, [None, 1])
-        log_probs = tanh_diagonal_gaussian_log_prob(ph, mean=0, log_std=log_std)
+        tanh_samples_ph, samples_ph = [tf.placeholder(tf.float32, [None, 1])
+                                       for _ in range(2)]
+        log_probs = tanh_diagonal_gaussian_log_prob(
+            gaussian_samples=samples_ph,
+            tanh_gaussian_samples=tanh_samples_ph,
+            mean=0,
+            log_std=log_std)
         sess = tf.Session()
-        calculated_log_probs = sess.run(log_probs, feed_dict={ph: tanh_gaussian_sample_values})
+        tanh_samples = np.linspace([-0.99], [0.99], num=100, axis=0)
+        samples = np.arctanh(tanh_samples)
+        calculated_log_probs = sess.run(log_probs, feed_dict={samples_ph: samples,
+                                                              tanh_samples_ph: tanh_samples})
         calculated_probs = np.exp(calculated_log_probs)
-        return calculated_probs, tanh_gaussian_sample_values
+        return calculated_probs, tanh_samples
 
     @staticmethod
     def _plot_samples(actual_samples, expected_samples):
@@ -166,10 +173,14 @@ class UnitTests(unittest.TestCase):
         return map(np.array, zip(*vals))
 
     def _check_means_decrease(self, means):
-        self.assertTrue(np.all(means[1:] < means[:-1]))
+        eps = 1e-5
+        for i in range(len(means) - 1):
+            np.testing.assert_array_less(means[i + 1], means[i] + eps)
 
     def _check_means_increase(self, means):
-        self.assertTrue(np.all(means[1:] > means[:-1]))
+        eps = 1e-5
+        for i in range(len(means) - 1):
+            np.testing.assert_array_less(means[i], means[i + 1] + eps)
 
     def _check_actions_saturated(self, act_lim, mean, log_std, pi, train_low, train_high):
         assert np.array(mean).shape == np.array(log_std).shape == np.array(pi).shape == (1, 2)

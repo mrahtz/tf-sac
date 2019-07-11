@@ -20,14 +20,17 @@ def get_diagonal_gaussian_model(obs_dim: int, n_actions: int, act_lim: np.ndarra
     log_std = Dense(n_actions, activation=None, name='fc_std')(features)
 
     pi = DiagonalGaussianSample([mean, log_std])
-    pi = Lambda(lambda x: tf.tanh(x))(pi)
-    log_prob_pi = TanhDiagonalGaussianLogProb([pi, mean, log_std])
-    pi = Lambda(lambda x: x * act_lim, name='pi_scale')(pi)
 
-    mean_model = Model(inputs=[obs], outputs=[mean])
+    tanh_pi = Lambda(lambda x: tf.tanh(x))(pi)
+    log_prob_tanh_pi = TanhDiagonalGaussianLogProb([pi, tanh_pi, mean, log_std])
+
+    scaled_tanh_pi = Lambda(lambda x: x * act_lim, name='pi_scale')(tanh_pi)
+    scaled_tanh_mean = Lambda(lambda x: tf.tanh(x) * act_lim, name='mean_scale')(mean)
+
+    mean_model = Model(inputs=[obs], outputs=[scaled_tanh_mean])
     log_std_model = Model(inputs=[obs], outputs=[log_std])
-    pi_model = Model(inputs=[obs], outputs=[pi])
-    log_prob_pi_model = Model(inputs=[obs], outputs=[log_prob_pi])
+    pi_model = Model(inputs=[obs], outputs=[scaled_tanh_pi])
+    log_prob_pi_model = Model(inputs=[obs], outputs=[log_prob_tanh_pi])
 
     return Policy(mean=mean_model,
                   log_std=log_std_model,
@@ -43,9 +46,11 @@ DiagonalGaussianSample = Lambda(
 
 TanhDiagonalGaussianLogProb = Lambda(
     name='act_prob',
-    function=lambda pi_mean_logstd_tup: tanh_diagonal_gaussian_log_prob(tanh_gaussian_samples=pi_mean_logstd_tup[0],
-                                                                        mean=pi_mean_logstd_tup[1],
-                                                                        log_std=pi_mean_logstd_tup[2]),
+    function=lambda pi_tanhpi_mean_logstd_tup: tanh_diagonal_gaussian_log_prob(
+        gaussian_samples=pi_tanhpi_mean_logstd_tup[0],
+        tanh_gaussian_samples=pi_tanhpi_mean_logstd_tup[1],
+        mean=pi_tanhpi_mean_logstd_tup[2],
+        log_std=pi_tanhpi_mean_logstd_tup[3]),
 )
 
 
@@ -56,10 +61,9 @@ def diagonal_gaussian_sample(mean, log_std):
     return sample
 
 
-def tanh_diagonal_gaussian_log_prob(tanh_gaussian_samples, mean, log_std):
+def tanh_diagonal_gaussian_log_prob(gaussian_samples, tanh_gaussian_samples, mean, log_std):
     assert len(tanh_gaussian_samples.shape) == 2
-    gaussian_sample = tf.atanh(tanh_gaussian_samples)
-    log_prob = diagonal_gaussian_log_prob(gaussian_sample, mean, log_std)
+    log_prob = diagonal_gaussian_log_prob(gaussian_samples, mean, log_std)
     log_prob -= tf.reduce_sum(tf.log(1 - tanh_gaussian_samples ** 2), axis=1, keepdims=True)
     return log_prob
 
