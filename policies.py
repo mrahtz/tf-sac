@@ -8,6 +8,7 @@ from tensorflow.python.keras.layers import Dense, Lambda
 from utils import get_features_model
 
 Policy = namedtuple('Policy', 'mean log_std pi log_prob_pi')
+EPS = 1e-8
 
 
 def get_diagonal_gaussian_model(obs_dim: int, n_actions: int, act_lim: np.ndarray):
@@ -18,6 +19,12 @@ def get_diagonal_gaussian_model(obs_dim: int, n_actions: int, act_lim: np.ndarra
     features = features_model(obs)
     mean = Dense(n_actions, activation=None, name='fc_mean')(features)
     log_std = Dense(n_actions, activation=None, name='fc_std')(features)
+
+    # Limit range of log_std to prevent numerical errors if it gets too large
+    std_min, std_max = 1e-4, 4
+    log_std_min, log_std_max = np.log([std_min, std_max])
+    log_std_limit = lambda x: (tf.tanh(x) + 1) * 0.5 * (log_std_max - log_std_min) + log_std_min
+    log_std = Lambda(log_std_limit)(log_std)
 
     pi = DiagonalGaussianSample([mean, log_std])
 
@@ -64,7 +71,9 @@ def diagonal_gaussian_sample(mean, log_std):
 def tanh_diagonal_gaussian_log_prob(gaussian_samples, tanh_gaussian_samples, mean, log_std):
     assert len(tanh_gaussian_samples.shape) == 2
     log_prob = diagonal_gaussian_log_prob(gaussian_samples, mean, log_std)
-    log_prob -= tf.reduce_sum(tf.log(1 - tanh_gaussian_samples ** 2), axis=1, keepdims=True)
+    # tf.tanh can sometimes be > 1 due to precision errors
+    tanh_gaussian_samples = clip_but_pass_gradient(tanh_gaussian_samples, l=0, u=1)
+    log_prob -= tf.reduce_sum(tf.log(1 - tanh_gaussian_samples ** 2 + EPS), axis=1, keepdims=True)
     return log_prob
 
 
@@ -72,12 +81,18 @@ def diagonal_gaussian_log_prob(gaussian_samples, mean, log_std):
     assert len(gaussian_samples.shape) == 2
     n_dims = gaussian_samples.shape[1]
     assert gaussian_samples.shape.as_list() == [None, n_dims]
-    eps = 1e-8
     std = tf.exp(log_std)
-    log_probs_each_dim = -0.5 * np.log(2 * np.pi) - log_std - (gaussian_samples - mean) ** 2 / (2 * std ** 2 + eps)
+    log_probs_each_dim = -0.5 * np.log(2 * np.pi) - log_std - (gaussian_samples - mean) ** 2 / (2 * std ** 2 + EPS)
     assert log_probs_each_dim.shape.as_list() == [None, n_dims]
     # For a diagonal Gaussian, the probability of the random vector is the product of the probabilities
     # of the individual random variables. We're operating in log-space, so we can just sum.
     log_prob = tf.reduce_sum(log_probs_each_dim, axis=1, keepdims=True)
     assert log_prob.shape.as_list() == [None, 1]
     return log_prob
+
+
+# From Spinning Up implementation
+def clip_but_pass_gradient(x, l=-1., u=1.):
+    clip_up = tf.cast(x > u, tf.float32)
+    clip_low = tf.cast(x < l, tf.float32)
+    return x + tf.stop_gradient((u - x) * clip_up + (l - x) * clip_low)

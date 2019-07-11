@@ -47,7 +47,7 @@ class UnitTests(unittest.TestCase):
     def test_v_target_some_update(self):
         obs_dim = 3
         obs = np.random.rand(obs_dim)
-        model = self._get_model_with_polyak_coef(obs_dim, polyak_coef=0.5, seed=2)
+        model = self._get_model_with_polyak_coef(obs_dim, polyak_coef=0.5, seed=0)
 
         v_main = self._get_v_main(model, obs)
         v_targ = self._get_v_targ(model, obs)
