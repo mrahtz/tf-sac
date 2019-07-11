@@ -47,9 +47,7 @@ class SACModel:
             rews = tf.placeholder(tf.float32, [None, 1])
             done = tf.placeholder(tf.float32, [None, 1])
 
-            policy = get_diagonal_gaussian_model(obs_dim=obs_dim,
-                                                 n_actions=n_actions,
-                                                 act_lim=act_lim)
+            policy = get_diagonal_gaussian_model(obs_dim=obs_dim, n_actions=n_actions, act_lim=act_lim)
             mu = policy.mean
             pi = policy.pi
             log_prob_pi = policy.log_prob_pi
@@ -67,8 +65,9 @@ class SACModel:
             assert min_q12.output_shape == (None, 1)
             assert log_prob_pi.output_shape == (None, 1)
             assert v_main.output_shape == (None, 1)
-            v_backup = min_q12([obs1, acts]) - temperature * log_prob_pi(obs1)
+            v_backup = min_q12([obs1, pi(obs1)]) - temperature * log_prob_pi(obs1)
             v_loss = (v_main(obs1) - v_backup) ** 2
+            v_loss = tf.reduce_mean(v_loss)
 
             # Equations 8/7 in the paper
             assert rews.shape.as_list() == [None, 1]
@@ -77,18 +76,23 @@ class SACModel:
             q_backup = rews + discount * (1 - done) * v_targ(obs2)
             q1_loss = (q1([obs1, acts]) - q_backup) ** 2
             q2_loss = (q2([obs2, acts]) - q_backup) ** 2
+            q1_loss = tf.reduce_mean(q1_loss)
+            q2_loss = tf.reduce_mean(q2_loss)
 
             # Equation 12 in the paper
             # Again, note that we don't use actions sampled from the replay buffer.
             assert min_q12.output_shape == (None, 1)
             assert log_prob_pi.output_shape == (None, 1)
             pi_loss = -(min_q12([obs1, pi(obs1)]) - temperature * log_prob_pi(obs1))
+            pi_loss = tf.reduce_mean(pi_loss)
 
-            pi_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(pi_loss)
-            q1_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(q1_loss)
-            q2_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(q2_loss)
-            v_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(v_loss)
-            self.train_ops = tf.group([pi_train, q1_train, q2_train, v_train])
+            # The paper isn't explicit about how many optimizers are used,
+            # but this is what Spinning Up does.
+            pi_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(pi_loss, var_list=pi.weights)
+            v_q_loss = v_loss + q1_loss + q2_loss
+            v_q_weights = q1.weights + q2.weights + v_main.weights
+            v_q_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(v_q_loss, var_list=v_q_weights)
+            self.train_ops = tf.group([pi_train, v_q_train])
 
             v_main_params = v_main.weights
             v_targ_params = v_targ.weights
