@@ -31,8 +31,13 @@ def get_diagonal_gaussian_model(obs_dim: int, n_actions: int, act_lim: np.ndarra
     tanh_pi = Lambda(lambda x: tf.tanh(x))(pi)
     log_prob_tanh_pi = TanhDiagonalGaussianLogProb([pi, tanh_pi, mean, log_std])
 
+    # Note that we limit the mean /after/ we've taken samples.
+    # Otherwise, we would limit the mean, then also limit the sample,
+    # leading to actions of scale tanh(1) when std is small.
+    tanh_mean = Lambda(lambda x: tf.tanh(x))(mean)
+
     scaled_tanh_pi = Lambda(lambda x: x * act_lim, name='pi_scale')(tanh_pi)
-    scaled_tanh_mean = Lambda(lambda x: tf.tanh(x) * act_lim, name='mean_scale')(mean)
+    scaled_tanh_mean = Lambda(lambda x: x * act_lim, name='mean_scale')(tanh_mean)
 
     mean_model = Model(inputs=[obs], outputs=[scaled_tanh_mean])
     log_std_model = Model(inputs=[obs], outputs=[log_std])
