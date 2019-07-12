@@ -7,3 +7,4 @@ Lessons learned:
 * Don't forget to reduce_mean losses
 * Don't forget to limit which vars you optimize for
 * stop_backup
+* Nice Pycharm shortcuts
