@@ -78,7 +78,7 @@ def run_test_env(model, model_load_dir, render, env_id, seed, log_dir):
 
 
 @ex.automain
-def main(gamma, buffer_size, lr, render, seed, env_id, polyak_coef, temperature):
+def main(gamma, buffer_size, lr, render, seed, env_id, polyak_coef, temperature, policy_std_min, policy_std_max):
     env = make_env(env_id, seed, observer.dir, 'train')
 
     buffer = ReplayBuffer(env.observation_space.shape, env.action_space.shape, max_size=buffer_size)
@@ -87,7 +87,8 @@ def main(gamma, buffer_size, lr, render, seed, env_id, polyak_coef, temperature)
     act_lim = env.action_space.high
     ckpt_dir = os.path.join(observer.dir, 'checkpoints')
     model = SACModel(obs_dim=obs_dim, n_actions=n_actions, act_lim=act_lim, save_dir=ckpt_dir,
-                     discount=gamma, lr=lr, seed=seed, polyak_coef=polyak_coef, temperature=temperature)
+                     discount=gamma, lr=lr, seed=seed, polyak_coef=polyak_coef, temperature=temperature,
+                     std_min_max=(policy_std_min, policy_std_max))
     model.save()
 
     ctx = multiprocessing.get_context('spawn')

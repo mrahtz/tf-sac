@@ -32,7 +32,8 @@ def get_min_q12_model(obs_dim, n_actions, q1, q2):
 
 class SACModel:
 
-    def __init__(self, obs_dim, n_actions, act_lim, seed, discount, temperature, polyak_coef, lr, save_dir=None):
+    def __init__(self, obs_dim, n_actions, act_lim, seed, discount, temperature, polyak_coef, lr, std_min_max,
+                 save_dir=None):
         self.args_copy = self.args_from_locals(locals())
         self.n_actions = n_actions
         self.save_dir = save_dir
@@ -47,7 +48,8 @@ class SACModel:
             rews = tf.placeholder(tf.float32, [None, 1])
             done = tf.placeholder(tf.float32, [None, 1])
 
-            policy = get_diagonal_gaussian_model(obs_dim=obs_dim, n_actions=n_actions, act_lim=act_lim)
+            policy = get_diagonal_gaussian_model(obs_dim=obs_dim, n_actions=n_actions,
+                                                 act_lim=act_lim, std_min_max=std_min_max)
             mu = policy.mean
             pi = policy.pi
             log_prob_pi = policy.log_prob_pi

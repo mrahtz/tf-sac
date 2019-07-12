@@ -1,4 +1,5 @@
 from collections import namedtuple
+from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -11,8 +12,10 @@ Policy = namedtuple('Policy', 'mean log_std pi log_prob_pi')
 EPS = 1e-8
 
 
-def get_diagonal_gaussian_model(obs_dim: int, n_actions: int, act_lim: np.ndarray):
+def get_diagonal_gaussian_model(obs_dim: int, n_actions: int,
+                                act_lim: np.ndarray, std_min_max: Tuple[float, float]):
     assert act_lim.shape == (n_actions,)
+    assert len(std_min_max) == 2
 
     obs = Input(shape=(obs_dim,))
     features_model = get_features_model(obs_dim)
@@ -21,8 +24,7 @@ def get_diagonal_gaussian_model(obs_dim: int, n_actions: int, act_lim: np.ndarra
     log_std = Dense(n_actions, activation=None, name='fc_std')(features)
 
     # Limit range of log_std to prevent numerical errors if it gets too large
-    std_min, std_max = 1e-4, 4
-    log_std_min, log_std_max = np.log([std_min, std_max])
+    log_std_min, log_std_max = np.log(std_min_max)
     log_std_limit = lambda x: (tf.tanh(x) + 1) * 0.5 * (log_std_max - log_std_min) + log_std_min
     log_std = Lambda(log_std_limit)(log_std)
 

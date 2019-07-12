@@ -145,7 +145,8 @@ class UnitTests(unittest.TestCase):
 
     @staticmethod
     def _get_ops(act_lim):
-        policy = get_diagonal_gaussian_model(obs_dim=1, n_actions=2, act_lim=act_lim)
+        policy = get_diagonal_gaussian_model(obs_dim=1, n_actions=2,
+                                             act_lim=act_lim, std_min_max=[1e-4, 4])
 
         obs_ph = tf.placeholder(tf.float32, shape=[None, 1])
         mean_op = policy.mean(obs_ph)
@@ -240,7 +241,7 @@ class UnitTests(unittest.TestCase):
     def _get_model_with_polyak_coef(obs_dim, polyak_coef, seed=0):
         model = SACModel(obs_dim=obs_dim, n_actions=2, seed=seed, discount=0.99,
                          temperature=1e-3, polyak_coef=polyak_coef, lr=1e-3,
-                         act_lim=np.array([1, 1]))
+                         act_lim=np.array([1, 1]), std_min_max=[1e-4, 4])
         return model
 
 

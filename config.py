@@ -12,4 +12,6 @@ default_config = dict(
     env_id='InvertedPendulum-v2',
     train_n_steps=1e5,
     seed=0,
+    policy_std_min=1e-4,
+    policy_std_max=4
 )
