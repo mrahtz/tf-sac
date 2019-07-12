@@ -173,12 +173,14 @@ class UnitTests(unittest.TestCase):
 
         return map(np.array, zip(*vals))
 
-    def _check_means_decrease(self, means):
+    @staticmethod
+    def _check_means_decrease(means):
         eps = 1e-5
         for i in range(len(means) - 1):
             np.testing.assert_array_less(means[i + 1], means[i] + eps)
 
-    def _check_means_increase(self, means):
+    @staticmethod
+    def _check_means_increase(means):
         eps = 1e-5
         for i in range(len(means) - 1):
             np.testing.assert_array_less(means[i], means[i + 1] + eps)

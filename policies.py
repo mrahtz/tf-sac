@@ -25,8 +25,7 @@ def get_diagonal_gaussian_model(obs_dim: int, n_actions: int,
 
     # Limit range of log_std to prevent numerical errors if it gets too large
     log_std_min, log_std_max = np.log(std_min_max)
-    log_std_limit = lambda x: (tf.tanh(x) + 1) * 0.5 * (log_std_max - log_std_min) + log_std_min
-    log_std = Lambda(log_std_limit)(log_std)
+    log_std = Lambda(log_std_limit(log_std_min, log_std_max))(log_std)
 
     pi = DiagonalGaussianSample([mean, log_std])
 
@@ -50,6 +49,10 @@ def get_diagonal_gaussian_model(obs_dim: int, n_actions: int,
                   log_std=log_std_model,
                   pi=pi_model,
                   log_prob_pi=log_prob_pi_model)
+
+
+def log_std_limit(std_min, std_max):
+    return lambda x: (tf.tanh(x) + 1) * 0.5 * (std_max - std_min) + std_min
 
 
 DiagonalGaussianSample = Lambda(
@@ -79,7 +82,7 @@ def tanh_diagonal_gaussian_log_prob(gaussian_samples, tanh_gaussian_samples, mea
     assert len(tanh_gaussian_samples.shape) == 2
     log_prob = diagonal_gaussian_log_prob(gaussian_samples, mean, log_std)
     # tf.tanh can sometimes be > 1 due to precision errors
-    tanh_gaussian_samples = clip_but_pass_gradient(tanh_gaussian_samples, l=0, u=1)
+    tanh_gaussian_samples = clip_but_pass_gradient(tanh_gaussian_samples, low=0, high=1)
     log_prob -= tf.reduce_sum(tf.log(1 - tanh_gaussian_samples ** 2 + EPS), axis=1, keepdims=True)
     return log_prob
 
@@ -99,7 +102,7 @@ def diagonal_gaussian_log_prob(gaussian_samples, mean, log_std):
 
 
 # From Spinning Up implementation
-def clip_but_pass_gradient(x, l=-1., u=1.):
-    clip_up = tf.cast(x > u, tf.float32)
-    clip_low = tf.cast(x < l, tf.float32)
-    return x + tf.stop_gradient((u - x) * clip_up + (l - x) * clip_low)
+def clip_but_pass_gradient(x, low=-1., high=1.):
+    clip_up = tf.cast(x > high, tf.float32)
+    clip_low = tf.cast(x < low, tf.float32)
+    return x + tf.stop_gradient((high - x) * clip_up + (low - x) * clip_low)

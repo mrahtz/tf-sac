@@ -1,9 +1,8 @@
 import os
 import time
 
-import tensorflow as tf
 from tensorflow.python.keras import Input, Model
-from tensorflow.python.keras.layers import Dense, Lambda
+from tensorflow.python.keras.layers import Dense
 from tensorflow.python.util import deprecation
 
 
