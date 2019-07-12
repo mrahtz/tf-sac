@@ -5,8 +5,9 @@ import tensorflow as tf
 from matplotlib.pyplot import hist, show, legend, plot, subplot, ylim, title
 
 from model import SACModel
-from policies import TanhDiagonalGaussianPolicy, DiagonalGaussianSample, Tanh, TanhDiagonalGaussianLogProb, \
+from policies import TanhDiagonalGaussianPolicy, DiagonalGaussianSample, TanhDiagonalGaussianLogProb, \
     EPS, DiagonalGaussianLogProb
+from keras_utils import Tanh
 from utils import tf_disable_warnings, tf_disable_deprecation_warnings
 
 tf_disable_warnings()

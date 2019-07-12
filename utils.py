@@ -1,8 +1,6 @@
 import os
 import time
 
-from tensorflow.python.keras import Input, Model
-from tensorflow.python.keras.layers import Dense
 from tensorflow.python.util import deprecation
 
 
@@ -33,27 +31,3 @@ class RateMeasure:
         self.prev_value = val
 
         return rate
-
-
-class Features(Model):
-    def __init__(self):
-        super().__init__()
-        self.ls = [Dense(256, activation='relu'),
-                   Dense(256, activation='relu')]
-
-    def call(self, x, **kwargs):
-        for l in self.ls:
-            x = l(x)
-        return x
-
-
-class MLP(Model):
-    def __init__(self, n_outputs):
-        super().__init__()
-        self.features = Features()
-        self.dense = Dense(n_outputs, activation=None)
-
-    def call(self, x, **kwargs):
-        x = self.features(x)
-        x = self.dense(x)
-        return x

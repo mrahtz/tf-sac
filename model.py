@@ -7,7 +7,7 @@ from tensorflow.python.keras.layers import Concatenate, Lambda
 
 from policies import TanhDiagonalGaussianPolicy
 from replay_buffer import ReplayBatch
-from utils import MLP
+from keras_utils import MLP
 
 
 def get_q_model(obs_dim, n_actions):

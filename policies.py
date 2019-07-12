@@ -1,22 +1,12 @@
-from collections import namedtuple
 from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.keras import Model
 from tensorflow.python.keras.layers import Dense
-from tensorflow.python.layers.base import Layer
 
-from utils import Features
+from keras_utils import NamedInputsLayer, Scale, Tanh, Squash, clip_but_pass_gradient, Policy, MLPFeatures, PolicyOps
 
 EPS = 1e-8
-Policy = namedtuple('Policy', 'mean log_std pi')
-PolicyOps = namedtuple('PolicyOps', 'raw_mean mean log_std pi log_prob_pi')
-
-
-class Policy(Model):
-    def __call__(self, inputs, *args, **kwargs) -> PolicyOps:
-        return super().__call__(inputs, *args, **kwargs)
 
 
 class TanhDiagonalGaussianPolicy(Policy):
@@ -28,7 +18,7 @@ class TanhDiagonalGaussianPolicy(Policy):
         self.log_std_min, self.log_std_max = np.log(std_min_max)
         self.act_lim = act_lim
 
-        self.features = Features()
+        self.features = MLPFeatures()
         self.mean = Dense(n_actions, activation=None)
         self.log_std = Dense(n_actions, activation=None)
 
@@ -64,50 +54,7 @@ class TanhDiagonalGaussianPolicy(Policy):
         )
 
 
-class NamedInputsLayer(Layer):
-    def __call__(self, **kwargs):
-        self.names, inputs = list(zip(*kwargs.items()))
-        return super().__call__(inputs=inputs)
-
-    # noinspection PyMethodOverriding
-    def call(self, inputs):
-        kwargs = dict(zip(self.names, inputs))
-        return self.call_named(**kwargs)
-
-    def call_named(self, **kwargs):
-        raise NotImplementedError()
-
-
-class Scale(Layer):
-    def __init__(self, scale):
-        super().__init__()
-        self.scale = scale
-
-    def call(self, x, **kwargs):
-        return x * self.scale
-
-
-class Tanh(Layer):
-    def call(self, x, **kwargs):
-        return tf.tanh(x)
-
-
-class Squash(Layer):
-    def __init__(self, in_min, in_max, out_min, out_max):
-        super().__init__()
-        self.input_min = in_min
-        self.input_max = in_max
-        self.input_scale = in_max - in_min
-        self.output_min = out_min
-        self.output_max = out_max
-        self.output_scale = out_max - out_min
-
-    def call(self, x, **kwargs):
-        return (x + self.input_min) / self.input_scale * self.output_scale + self.output_min
-
-
 class DiagonalGaussianSample(NamedInputsLayer):
-    # noinspection PyMethodOverridin
     def call_named(self, mean, log_std):
         eps = tf.random.normal(tf.shape(mean))
         std = tf.exp(log_std)
@@ -145,10 +92,3 @@ class DiagonalGaussianLogProb(NamedInputsLayer):
         assert log_prob.shape.as_list() == [None, 1]
 
         return log_prob
-
-
-# From Spinning Up implementation
-def clip_but_pass_gradient(x, low=-1., high=1.):
-    clip_up = tf.cast(x > high, tf.float32)
-    clip_low = tf.cast(x < low, tf.float32)
-    return x + tf.stop_gradient((high - x) * clip_up + (low - x) * clip_low)
