@@ -81,7 +81,7 @@ def run_test_env(model, model_load_dir, render, env_id, seed, log_dir):
 def main(gamma, buffer_size, lr, render, seed, env_id, polyak_coef, temperature):
     env = make_env(env_id, seed, observer.dir, 'train')
 
-    buffer = ReplayBuffer(env.observation_space.shape, max_size=buffer_size)
+    buffer = ReplayBuffer(env.observation_space.shape, env.action_space.shape, max_size=buffer_size)
     obs_dim = env.observation_space.shape[0]
     n_actions = env.action_space.shape[0]
     act_lim = env.action_space.high
@@ -91,7 +91,7 @@ def main(gamma, buffer_size, lr, render, seed, env_id, polyak_coef, temperature)
     model.save()
 
     ctx = multiprocessing.get_context('spawn')
-    test_env_proc = ctx.Process(target=run_test_env, daemon=False,
+    test_env_proc = ctx.Process(target=run_test_env, daemon=True,
                                 args=(model, ckpt_dir, render, env_id, seed, observer.dir))
     test_env_proc.start()
 

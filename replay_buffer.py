@@ -15,12 +15,12 @@ class ReplayBatch:
 
 
 class ReplayBuffer:
-    def __init__(self, obs_shape, max_size):
-        obs_shape = list(obs_shape)
+    def __init__(self, obs_shape, act_shape, max_size):
+        obs_shape, act_shape = list(obs_shape), list(act_shape)
         self.obs1_buf = np.zeros([max_size] + obs_shape)
         self.obs2_buf = np.zeros([max_size] + obs_shape)
+        self.acts_buf = np.zeros([max_size] + act_shape)
         self.rews_buf = np.zeros([max_size, 1])
-        self.acts_buf = np.zeros([max_size, 1])
         self.done_buf = np.zeros([max_size, 1])
         self.idx = 0
         self.len = 0
@@ -40,7 +40,7 @@ class ReplayBuffer:
         if self.len < self.max_size:
             self.len += 1
 
-    def sample(self, batch_size=32) -> ReplayBatch:
+    def sample(self, batch_size) -> ReplayBatch:
         idxs = np.random.choice(self.len, size=batch_size, replace=False)
         return ReplayBatch(
             obs1=[self.obs1_buf[i] for i in idxs],
