@@ -26,8 +26,8 @@ class SACModel:
             rews = tf.placeholder(tf.float32, [None, 1])
             done = tf.placeholder(tf.float32, [None, 1])
 
-            policy = TanhDiagonalGaussianPolicy(n_actions=n_actions, act_lim=act_lim, std_min_max=std_min_max)
-            ops = policy(obs1)
+            policy_model = TanhDiagonalGaussianPolicy(n_actions=n_actions, act_lim=act_lim, std_min_max=std_min_max)
+            ops = policy_model(obs1)
             mean_obs1, pi_obs1, log_prob_pi_obs1 = ops.mean, ops.pi, ops.log_prob_pi
 
             q1_model = Q(obs_dim, n_actions)
@@ -73,10 +73,12 @@ class SACModel:
 
             # The paper isn't explicit about how many optimizers are used,
             # but this is what Spinning Up does.
-            pi_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(pi_loss, var_list=policy.weights)
+            pi_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(pi_loss, var_list=policy_model.weights)
+
             v_q_loss = v_loss + q1_loss + q2_loss
             v_q_weights = q1_model.weights + q2_model.weights + v_main_model.weights
             v_q_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(v_q_loss, var_list=v_q_weights)
+
             self.train_ops = tf.group([pi_train, v_q_train])
 
             v_main_params = v_main_model.weights
