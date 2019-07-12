@@ -4,10 +4,10 @@ import numpy as np
 import tensorflow as tf
 from matplotlib.pyplot import hist, show, legend, plot, subplot, ylim, title
 
+from keras_utils import Tanh
 from model import SACModel
 from policies import TanhDiagonalGaussianPolicy, DiagonalGaussianSample, TanhDiagonalGaussianLogProb, \
-    EPS, DiagonalGaussianLogProb
-from keras_utils import Tanh
+    EPS
 from utils import tf_disable_warnings, tf_disable_deprecation_warnings
 
 tf_disable_warnings()
@@ -75,6 +75,14 @@ class UnitTests(unittest.TestCase):
     def _get_v_main(model: SACModel, obs):
         v_main = model.sess.run(model.v_main_obs1, feed_dict={model.obs1: [obs]})[0]
         return v_main
+
+    def test_log_tanh_gaussian_probs(self):
+        mean = 0.0
+        log_std = np.log(1.0)
+        samples = np.array([[0.5]])
+        np.testing.assert_array_almost_equal(
+            np.log(UnitTests._gaussian_prob(mean, log_std, samples)),
+            UnitTests._log_gaussian_prob(mean, log_std, samples))
 
     def test_gaussian_layer_probs(self):
         self._test_gaussian_log_prob_correct(mean=0, std=1)
@@ -146,6 +154,11 @@ class UnitTests(unittest.TestCase):
                                                    policy_ops.log_prob_pi],
                                                   feed_dict={obs_ph: obs})
         return mean, log_std, pi, log_prob_pi
+
+    @staticmethod
+    def _gaussian_prob(mean, log_std, samples):
+        std = np.exp(log_std)
+        return 1 / np.sqrt(2 * np.pi * std ** 2) * np.exp(-(samples - mean) ** 2 / (2 * std ** 2))
 
     @staticmethod
     def _log_gaussian_prob(mean, log_std, samples):
