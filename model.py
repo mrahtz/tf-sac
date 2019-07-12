@@ -48,57 +48,62 @@ class SACModel:
             rews = tf.placeholder(tf.float32, [None, 1])
             done = tf.placeholder(tf.float32, [None, 1])
 
-            policy = get_diagonal_gaussian_model(obs_dim=obs_dim, n_actions=n_actions,
+            policy_model = get_diagonal_gaussian_model(obs_dim=obs_dim, n_actions=n_actions,
                                                  act_lim=act_lim, std_min_max=std_min_max)
 
-            mean_obs1, _, pi_obs1, log_prob_pi_obs1 = policy(obs1)
+            mean_obs1, _, pi_obs1, log_prob_pi_obs1 = policy_model(obs1)
 
-            q1 = get_q_model(obs_dim, n_actions)
-            q2 = get_q_model(obs_dim, n_actions)
-            min_q12 = get_min_q12_model(obs_dim, n_actions, q1, q2)
+            q1_model = get_q_model(obs_dim, n_actions)
+            q2_model = get_q_model(obs_dim, n_actions)
+            min_q12_model = get_min_q12_model(obs_dim, n_actions, q1_model, q2_model)
+            v_main_model = get_mlp_model(obs_dim, n_outputs=1)
+            v_targ_model = get_mlp_model(obs_dim, n_outputs=1)
 
-            v_main = get_mlp_model(obs_dim, n_outputs=1)
-            v_targ = get_mlp_model(obs_dim, n_outputs=1)
+            q1_obs1_acts = q1_model([obs1, acts])
+            q2_obs1_acts = q2_model([obs1, acts])
+            min_q12_obs1_pi = min_q12_model([obs1, pi_obs1])
+            v_main_obs1 = v_main_model(obs1)
+            v_targ_obs2 = v_targ_model(obs2)
 
             # Equation 5 in the paper
             # Note that although we use states from the replay buffer,
             # we sample actions from the current policy.
-            assert min_q12.output_shape == (None, 1)
+            assert min_q12_obs1_pi.shape.as_list() == [None, 1]
             assert log_prob_pi_obs1.shape.as_list() == [None, 1]
-            assert v_main.output_shape == (None, 1)
-            v_backup = min_q12([obs1, pi_obs1]) - temperature * log_prob_pi_obs1
+            assert v_main_obs1.shape.as_list() == [None, 1]
+            v_backup = min_q12_obs1_pi - temperature * log_prob_pi_obs1
             v_backup = tf.stop_gradient(v_backup)
-            v_loss = (v_main(obs1) - v_backup) ** 2
+            v_loss = (v_main_obs1 - v_backup) ** 2
             v_loss = tf.reduce_mean(v_loss)
 
             # Equations 8/7 in the paper
             assert rews.shape.as_list() == [None, 1]
             assert done.shape.as_list() == [None, 1]
-            assert v_targ.output_shape == (None, 1)
-            q_backup = rews + discount * (1 - done) * v_targ(obs2)
+            assert v_targ_obs2.shape.as_list() == [None, 1]
+            q_backup = rews + discount * (1 - done) * v_targ_obs2
             q_backup = tf.stop_gradient(q_backup)
-            q1_loss = (q1([obs1, acts]) - q_backup) ** 2
-            q2_loss = (q2([obs2, acts]) - q_backup) ** 2
+            q1_loss = (q1_obs1_acts - q_backup) ** 2
+            q2_loss = (q2_obs1_acts - q_backup) ** 2
             q1_loss = tf.reduce_mean(q1_loss)
             q2_loss = tf.reduce_mean(q2_loss)
 
             # Equation 12 in the paper
             # Again, note that we don't use actions sampled from the replay buffer.
-            assert min_q12.output_shape == (None, 1)
+            assert min_q12_model.output_shape == (None, 1)
             assert log_prob_pi_obs1.shape.as_list() == [None, 1]
-            pi_loss = -(min_q12([obs1, pi_obs1]) - temperature * log_prob_pi_obs1)
+            pi_loss = -(min_q12_obs1_pi - temperature * log_prob_pi_obs1)
             pi_loss = tf.reduce_mean(pi_loss)
 
             # The paper isn't explicit about how many optimizers are used,
             # but this is what Spinning Up does.
-            pi_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(pi_loss, var_list=policy.weights)
+            pi_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(pi_loss, var_list=policy_model.weights)
             v_q_loss = v_loss + q1_loss + q2_loss
-            v_q_weights = q1.weights + q2.weights + v_main.weights
+            v_q_weights = q1_model.weights + q2_model.weights + v_main_model.weights
             v_q_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(v_q_loss, var_list=v_q_weights)
             self.train_ops = tf.group([pi_train, v_q_train])
 
-            v_main_params = v_main.weights
-            v_targ_params = v_targ.weights
+            v_main_params = v_main_model.weights
+            v_targ_params = v_targ_model.weights
             assert len(v_main_params) == len(v_targ_params)
             v_targ_polyak_update_ops = []
             for i in range(len(v_main_params)):
@@ -114,8 +119,8 @@ class SACModel:
             saver = tf.train.Saver()
             sess.run(tf.global_variables_initializer())
 
-            self.v_main_obs1 = v_main(obs1)
-            self.v_targ_obs1 = v_targ(obs1)
+            self.v_main_obs1 = v_main_model(obs1)
+            self.v_targ_obs1 = v_targ_model(obs1)
 
         self.obs1 = obs1
         self.obs2 = obs2
