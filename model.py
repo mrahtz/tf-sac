@@ -2,32 +2,10 @@ import os
 import time
 
 import tensorflow as tf
-from tensorflow.python.keras import Input, Model
-from tensorflow.python.keras.layers import Concatenate, Lambda
 
+from keras_utils import MLP, Q
 from policies import TanhDiagonalGaussianPolicy
 from replay_buffer import ReplayBatch
-from keras_utils import MLP
-
-
-def get_q_model(obs_dim, n_actions):
-    obs = Input([obs_dim])
-    act = Input([n_actions])
-    obs_act = Concatenate(axis=-1)([obs, act])
-    assert obs_act.shape.as_list() == [None, obs_dim + n_actions]
-    q = MLP(n_outputs=1)(obs_act)
-    assert q.shape.as_list() == [None, 1]
-    return Model(inputs=[obs, act], outputs=q)
-
-
-def get_min_q12_model(obs_dim, n_actions, q1, q2):
-    obs = Input([obs_dim])
-    act = Input([n_actions])
-    q12 = Concatenate(axis=1)([q1([obs, act]), q2([obs, act])])
-    assert q12.shape.as_list() == [None, 2]
-    min_q12 = Lambda(lambda x: tf.reduce_min(x, axis=-1, keepdims=True))(q12)
-    assert min_q12.shape.as_list() == [None, 1]
-    return Model(inputs=[obs, act], outputs=min_q12)
 
 
 class SACModel:
@@ -49,18 +27,18 @@ class SACModel:
             done = tf.placeholder(tf.float32, [None, 1])
 
             policy = TanhDiagonalGaussianPolicy(n_actions=n_actions, act_lim=act_lim, std_min_max=std_min_max)
-            p = policy(obs1)
-            mean_obs1, pi_obs1, log_prob_pi_obs1 = p.mean, p.pi, p.log_prob_pi
+            ops = policy(obs1)
+            mean_obs1, pi_obs1, log_prob_pi_obs1 = ops.mean, ops.pi, ops.log_prob_pi
 
-            q1_model = get_q_model(obs_dim, n_actions)
-            q2_model = get_q_model(obs_dim, n_actions)
-            min_q12_model = get_min_q12_model(obs_dim, n_actions, q1_model, q2_model)
+            q1_model = Q(obs_dim, n_actions)
+            q2_model = Q(obs_dim, n_actions)
             v_main_model = MLP(n_outputs=1)
             v_targ_model = MLP(n_outputs=1)
 
-            q1_obs1_acts = q1_model([obs1, acts])
-            q2_obs1_acts = q2_model([obs1, acts])
-            min_q12_obs1_pi = min_q12_model([obs1, pi_obs1])
+            q1_obs1_acts = q1_model(obs=obs1, act=acts)
+            q2_obs1_acts = q2_model(obs=obs1, act=acts)
+            min_q12_obs1_pi = tf.minimum(q1_model(obs=obs1, act=pi_obs1),
+                                         q2_model(obs=obs1, act=pi_obs1))
             v_main_obs1 = v_main_model(obs1)
             v_targ_obs2 = v_targ_model(obs2)
 
@@ -88,7 +66,7 @@ class SACModel:
 
             # Equation 12 in the paper
             # Again, note that we don't use actions sampled from the replay buffer.
-            assert min_q12_model.output_shape == (None, 1)
+            assert min_q12_obs1_pi.shape.as_list() == [None, 1]
             assert log_prob_pi_obs1.shape.as_list() == [None, 1]
             pi_loss = -(min_q12_obs1_pi - temperature * log_prob_pi_obs1)
             pi_loss = tf.reduce_mean(pi_loss)

@@ -2,7 +2,7 @@ from collections import namedtuple
 
 import tensorflow as tf
 from tensorflow.python.keras import Model
-from tensorflow.python.keras.layers import Dense
+from tensorflow.python.keras.layers import Dense, Concatenate
 from tensorflow.python.layers.base import Layer
 
 
@@ -28,6 +28,20 @@ class MLPFeatures(Model):
         for l in self.ls:
             x = l(x)
         return x
+
+
+class NamedInputsModel(Model):
+    def __call__(self, **kwargs):
+        self.names, inputs = list(zip(*kwargs.items()))
+        return super().__call__(inputs=inputs)
+
+    # noinspection PyMethodOverriding
+    def call(self, inputs):
+        kwargs = dict(zip(self.names, inputs))
+        return self.call_named(**kwargs)
+
+    def call_named(self, **kwargs):
+        raise NotImplementedError()
 
 
 class NamedInputsLayer(Layer):
@@ -85,3 +99,20 @@ def clip_but_pass_gradient(x, low=-1., high=1.):
     clip_up = tf.cast(x > high, tf.float32)
     clip_low = tf.cast(x < low, tf.float32)
     return x + tf.stop_gradient((high - x) * clip_up + (low - x) * clip_low)
+
+
+class Q(NamedInputsModel):
+    def __init__(self, obs_dim, n_actions):
+        super().__init__()
+        self.obs_dim = obs_dim
+        self.n_actions = n_actions
+        self.mlp = MLP(n_outputs=1)
+
+    def call_named(self, obs, act):
+        assert obs.shape.as_list() == [None, self.obs_dim]
+        assert act.shape.as_list() == [None, self.n_actions]
+        obs_act = Concatenate(axis=-1)([obs, act])
+        assert obs_act.shape.as_list() == [None, self.obs_dim + self.n_actions]
+        q = self.mlp(obs_act)
+        assert q.shape.as_list() == [None, 1]
+        return q
