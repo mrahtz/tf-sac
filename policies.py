@@ -40,15 +40,8 @@ def get_diagonal_gaussian_model(obs_dim: int, n_actions: int,
     scaled_tanh_pi = Lambda(lambda x: x * act_lim, name='pi_scale')(tanh_pi)
     scaled_tanh_mean = Lambda(lambda x: x * act_lim, name='mean_scale')(tanh_mean)
 
-    mean_model = Model(inputs=[obs], outputs=[scaled_tanh_mean])
-    log_std_model = Model(inputs=[obs], outputs=[log_std])
-    pi_model = Model(inputs=[obs], outputs=[scaled_tanh_pi])
-    log_prob_pi_model = Model(inputs=[obs], outputs=[log_prob_tanh_pi])
-
-    return Policy(mean=mean_model,
-                  log_std=log_std_model,
-                  pi=pi_model,
-                  log_prob_pi=log_prob_pi_model)
+    model = Model(inputs=[obs], outputs=[scaled_tanh_mean, log_std, scaled_tanh_pi, log_prob_tanh_pi])
+    return model
 
 
 def log_std_limit(std_min, std_max):

@@ -92,8 +92,7 @@ class UnitTests(unittest.TestCase):
         policy = get_diagonal_gaussian_model(obs_dim=obs_dim, n_actions=1,
                                              act_lim=np.array([1]), std_min_max=(0.1, 1.0))
         obs_ph = tf.placeholder(tf.float32, [None, obs_dim])
-        mean_op, log_std_op, pi_op, log_prob_pi_op = \
-            policy.mean(obs_ph), policy.log_std(obs_ph), policy.pi(obs_ph), policy.log_prob_pi(obs_ph)
+        mean_op, log_std_op, pi_op, log_prob_pi_op = policy(obs_ph)
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
