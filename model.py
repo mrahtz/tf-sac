@@ -66,6 +66,7 @@ class SACModel:
             assert log_prob_pi.output_shape == (None, 1)
             assert v_main.output_shape == (None, 1)
             v_backup = min_q12([obs1, pi(obs1)]) - temperature * log_prob_pi(obs1)
+            v_backup = tf.stop_gradient(v_backup)
             v_loss = (v_main(obs1) - v_backup) ** 2
             v_loss = tf.reduce_mean(v_loss)
 
@@ -74,6 +75,7 @@ class SACModel:
             assert done.shape.as_list() == [None, 1]
             assert v_targ.output_shape == (None, 1)
             q_backup = rews + discount * (1 - done) * v_targ(obs2)
+            q_backup = tf.stop_gradient(q_backup)
             q1_loss = (q1([obs1, acts]) - q_backup) ** 2
             q2_loss = (q2([obs2, acts]) - q_backup) ** 2
             q1_loss = tf.reduce_mean(q1_loss)

@@ -6,3 +6,4 @@ Lessons learned:
 * Tanh maxes out surprisingly soon; be careful about atanh
 * Don't forget to reduce_mean losses
 * Don't forget to limit which vars you optimize for
+* stop_backup
