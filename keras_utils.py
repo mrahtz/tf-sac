@@ -91,7 +91,7 @@ class Squash(Layer):
         self.output_scale = out_max - out_min
 
     def call(self, x, **kwargs):
-        return (x + self.input_min) / self.input_scale * self.output_scale + self.output_min
+        return (x - self.input_min) / self.input_scale * self.output_scale + self.output_min
 
 
 def clip_but_pass_gradient(x, low=-1., high=1.):
