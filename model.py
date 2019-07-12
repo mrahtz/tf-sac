@@ -5,9 +5,9 @@ import tensorflow as tf
 from tensorflow.python.keras import Input, Model
 from tensorflow.python.keras.layers import Concatenate, Lambda
 
-from policies import get_diagonal_gaussian_model
+from policies import TanhDiagonalGaussianPolicy
 from replay_buffer import ReplayBatch
-from utils import get_mlp_model
+from utils import MLP
 
 
 def get_q_model(obs_dim, n_actions):
@@ -15,7 +15,7 @@ def get_q_model(obs_dim, n_actions):
     act = Input([n_actions])
     obs_act = Concatenate(axis=-1)([obs, act])
     assert obs_act.shape.as_list() == [None, obs_dim + n_actions]
-    q = get_mlp_model(n_inputs=(obs_dim + n_actions), n_outputs=1)(obs_act)
+    q = MLP(n_outputs=1)(obs_act)
     assert q.shape.as_list() == [None, 1]
     return Model(inputs=[obs, act], outputs=q)
 
@@ -48,16 +48,15 @@ class SACModel:
             rews = tf.placeholder(tf.float32, [None, 1])
             done = tf.placeholder(tf.float32, [None, 1])
 
-            policy_model = get_diagonal_gaussian_model(obs_dim=obs_dim, n_actions=n_actions,
-                                                 act_lim=act_lim, std_min_max=std_min_max)
-
-            mean_obs1, _, pi_obs1, log_prob_pi_obs1 = policy_model(obs1)
+            policy = TanhDiagonalGaussianPolicy(n_actions=n_actions, act_lim=act_lim, std_min_max=std_min_max)
+            p = policy(obs1)
+            mean_obs1, pi_obs1, log_prob_pi_obs1 = p.mean, p.pi, p.log_prob_pi
 
             q1_model = get_q_model(obs_dim, n_actions)
             q2_model = get_q_model(obs_dim, n_actions)
             min_q12_model = get_min_q12_model(obs_dim, n_actions, q1_model, q2_model)
-            v_main_model = get_mlp_model(obs_dim, n_outputs=1)
-            v_targ_model = get_mlp_model(obs_dim, n_outputs=1)
+            v_main_model = MLP(n_outputs=1)
+            v_targ_model = MLP(n_outputs=1)
 
             q1_obs1_acts = q1_model([obs1, acts])
             q2_obs1_acts = q2_model([obs1, acts])
@@ -96,7 +95,7 @@ class SACModel:
 
             # The paper isn't explicit about how many optimizers are used,
             # but this is what Spinning Up does.
-            pi_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(pi_loss, var_list=policy_model.weights)
+            pi_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(pi_loss, var_list=policy.weights)
             v_q_loss = v_loss + q1_loss + q2_loss
             v_q_weights = q1_model.weights + q2_model.weights + v_main_model.weights
             v_q_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(v_q_loss, var_list=v_q_weights)
@@ -106,9 +105,7 @@ class SACModel:
             v_targ_params = v_targ_model.weights
             assert len(v_main_params) == len(v_targ_params)
             v_targ_polyak_update_ops = []
-            for i in range(len(v_main_params)):
-                var_main = v_main_params[i]
-                var_targ = v_targ_params[i]
+            for var_main, var_targ in zip(v_main_params, v_targ_params):
                 update_op = var_targ.assign(polyak_coef * var_targ + (1 - polyak_coef) * var_main)
                 v_targ_polyak_update_ops.append(update_op)
             v_targ_polyak_update_op = tf.group(v_targ_polyak_update_ops)
@@ -122,18 +119,18 @@ class SACModel:
             self.v_main_obs1 = v_main_model(obs1)
             self.v_targ_obs1 = v_targ_model(obs1)
 
-        self.obs1 = obs1
-        self.obs2 = obs2
-        self.acts = acts
-        self.rews = rews
-        self.done = done
-        self.pi_obs1 = pi_obs1
-        self.mu_obs1 = mean_obs1
-        self.sess = sess
-        self.saver = saver
-        self.obs_dim = obs_dim
-        self.v_targ_polyak_update_op = v_targ_polyak_update_op
-        self.q_loss = q1_loss + q2_loss
+            self.obs1 = obs1
+            self.obs2 = obs2
+            self.acts = acts
+            self.rews = rews
+            self.done = done
+            self.pi_obs1 = pi_obs1
+            self.mu_obs1 = mean_obs1
+            self.sess = sess
+            self.saver = saver
+            self.obs_dim = obs_dim
+            self.v_targ_polyak_update_op = v_targ_polyak_update_op
+            self.q_loss = q1_loss + q2_loss
 
     @staticmethod
     def args_from_locals(locals_dict):

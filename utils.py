@@ -35,17 +35,25 @@ class RateMeasure:
         return rate
 
 
-def get_features_model(n_inputs, n_hidden=(256, 256)):
-    obs = Input(shape=[n_inputs])
-    h = obs
-    for n, n_h in enumerate(n_hidden):
-        h = Dense(n_h, activation='relu', name=f'h{n}')(h)
-    return Model(inputs=obs, outputs=h)
+class Features(Model):
+    def __init__(self):
+        super().__init__()
+        self.ls = [Dense(256, activation='relu'),
+                   Dense(256, activation='relu')]
+
+    def call(self, x, **kwargs):
+        for l in self.ls:
+            x = l(x)
+        return x
 
 
-def get_mlp_model(n_inputs, n_outputs):
-    x = Input(shape=[n_inputs])
-    features_model = get_features_model(n_inputs)
-    features = features_model(x)
-    outputs = Dense(n_outputs, activation=None, name='fc')(features)
-    return Model(inputs=x, outputs=outputs)
+class MLP(Model):
+    def __init__(self, n_outputs):
+        super().__init__()
+        self.features = Features()
+        self.dense = Dense(n_outputs, activation=None)
+
+    def call(self, x, **kwargs):
+        x = self.features(x)
+        x = self.dense(x)
+        return x

@@ -5,8 +5,8 @@ import tensorflow as tf
 from matplotlib.pyplot import hist, show, legend, plot, subplot, ylim, title
 
 from model import SACModel
-from policies import diagonal_gaussian_log_prob, tanh_diagonal_gaussian_log_prob, \
-    get_diagonal_gaussian_model, diagonal_gaussian_sample
+from policies import TanhDiagonalGaussianPolicy, DiagonalGaussianSample, Tanh, TanhDiagonalGaussianLogProb, \
+    EPS, DiagonalGaussianLogProb
 from utils import tf_disable_warnings, tf_disable_deprecation_warnings
 
 tf_disable_warnings()
@@ -47,7 +47,7 @@ class UnitTests(unittest.TestCase):
     def test_v_target_some_update(self):
         obs_dim = 3
         obs = np.random.rand(obs_dim)
-        model = self._get_model_with_polyak_coef(obs_dim, polyak_coef=0.5, seed=0)
+        model = self._get_model_with_polyak_coef(obs_dim, polyak_coef=0.5, seed=1)
 
         v_main = self._get_v_main(model, obs)
         v_targ = self._get_v_targ(model, obs)
@@ -58,7 +58,7 @@ class UnitTests(unittest.TestCase):
         v_targ = self._get_v_targ(model, obs)
         np.testing.assert_approx_equal(v_targ, v_main, significant=5)
 
-    def test_gaussian_log_prob(self):
+    def test_gaussian_layer_probs(self):
         self._test_gaussian_log_prob_correct(mean=0, std=1)
         self._test_gaussian_log_prob_correct(mean=0, std=2)
         self._test_gaussian_log_prob_correct(mean=1, std=1)
@@ -71,6 +71,33 @@ class UnitTests(unittest.TestCase):
         self._test_gaussian_log_prob_finite(mean=2, std=0.01)
         self._test_gaussian_log_prob_finite(mean=2, std=0.001)
         self._test_gaussian_log_prob_finite(mean=2, std=1e-8)
+
+    def test_policy_probs(self):
+        obs_dim = 3
+        obs = np.random.rand(1, obs_dim).astype(np.float32)
+        mean, log_std, pi, log_prob_pi = self._get_policy_outputs(obs)
+
+        actual = log_prob_pi
+        expected = self._log_tanh_gaussian_probs(mean, log_std,
+                                                 tanh_samples=pi,
+                                                 samples=np.arctanh(pi))
+        np.testing.assert_array_almost_equal(actual, expected)
+
+    def test_act_limit(self):
+        act_lim = np.array([3, 5])
+        feed_dict, log_std_op, mean_op, pi_op, train_high, train_low = self._get_ops(act_lim)
+
+        for train_op in [train_low, train_high]:
+            means, log_stds, pis = self._train(train_op, mean_op, log_std_op, pi_op, feed_dict)
+
+            if train_op == train_high:
+                self._check_means_increase(means)
+            elif train_op == train_low:
+                self._check_means_decrease(means)
+
+            self._check_actions_saturated(act_lim, means[-1], log_stds[-1], pis[-1],
+                                          (train_op == train_low),
+                                          (train_op == train_high))
 
     def manual_test_tanh_gaussian(self):
         mean, std, n_samples = 0.0, 1.0, 100000
@@ -87,40 +114,37 @@ class UnitTests(unittest.TestCase):
 
         show()
 
-    def test_pi_prob(self):
-        obs_dim = 3
-        policy = get_diagonal_gaussian_model(obs_dim=obs_dim, n_actions=1,
-                                             act_lim=np.array([1]), std_min_max=(0.1, 1.0))
+    @staticmethod
+    def _get_policy_outputs(obs):
+        obs_dim = obs.shape[1]
+        policy = TanhDiagonalGaussianPolicy(n_actions=3, act_lim=np.array([1, 1, 1]), std_min_max=(0.1, 1.0))
         obs_ph = tf.placeholder(tf.float32, [None, obs_dim])
-        mean_op, log_std_op, pi_op, log_prob_pi_op = policy(obs_ph)
-
+        policy_ops = policy(obs_ph)
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
-        obs = np.random.rand(1, obs_dim).astype(np.float32)
-        mean, log_std, pi, log_prob_pi = sess.run([mean_op, log_std_op, pi_op, log_prob_pi_op],
+        mean, log_std, pi, log_prob_pi = sess.run([policy_ops.raw_mean,
+                                                   policy_ops.log_std,
+                                                   policy_ops.pi,
+                                                   policy_ops.log_prob_pi],
                                                   feed_dict={obs_ph: obs})
-
-        actual = log_prob_pi
-        expected = np.log(self._tanh_gaussian_prob(mean, np.exp(log_std), pi))
-        np.testing.assert_approx_equal(actual, expected)
+        return mean, log_std, pi, log_prob_pi
 
     @staticmethod
     def _get_tanh_gaussian_samples(mean, log_std, n_samples):
-        sample_op = tf.tanh(diagonal_gaussian_sample(mean=[mean] * n_samples,
-                                                     log_std=[log_std] * n_samples))
+        samples_op = DiagonalGaussianSample()(mean=[mean] * n_samples, log_std=[log_std] * n_samples)
+        tanh_samples_op = Tanh()(samples_op)
         sess = tf.Session()
-        samples = sess.run(sample_op)
-        return samples
+        samples_op = sess.run(tanh_samples_op)
+        return samples_op
 
     @staticmethod
     def _get_tanh_gaussian_pdf(log_std):
         tanh_samples_ph, samples_ph = [tf.placeholder(tf.float32, [None, 1])
                                        for _ in range(2)]
-        log_probs = tanh_diagonal_gaussian_log_prob(
-            gaussian_samples=samples_ph,
-            tanh_gaussian_samples=tanh_samples_ph,
-            mean=0,
-            log_std=log_std)
+        log_probs = TanhDiagonalGaussianLogProb()(gaussian_samples=samples_ph,
+                                                  tanh_gaussian_samples=tanh_samples_ph,
+                                                  mean=0,
+                                                  log_std=log_std)
         sess = tf.Session()
         tanh_samples = np.linspace([-0.99], [0.99], num=100, axis=0)
         samples = np.arctanh(tanh_samples)
@@ -144,31 +168,12 @@ class UnitTests(unittest.TestCase):
         plot(values, probs)
         ylim([y_min, y_max])
 
-    def test_act_limit(self):
-        act_lim = np.array([3, 5])
-        feed_dict, log_std_op, mean_op, pi_op, train_high, train_low = self._get_ops(act_lim)
-
-        for train_op in [train_low, train_high]:
-            means, log_stds, pis = self._train(train_op, mean_op, log_std_op, pi_op, feed_dict)
-
-            if train_op == train_high:
-                self._check_means_increase(means)
-            elif train_op == train_low:
-                self._check_means_decrease(means)
-
-            self._check_actions_saturated(act_lim, means[-1], log_stds[-1], pis[-1],
-                                          (train_op == train_low),
-                                          (train_op == train_high))
-
     @staticmethod
     def _get_ops(act_lim):
-        policy = get_diagonal_gaussian_model(obs_dim=1, n_actions=2,
-                                             act_lim=act_lim, std_min_max=[1e-4, 4])
-
+        policy = TanhDiagonalGaussianPolicy(n_actions=2, act_lim=act_lim, std_min_max=(0.1, 1.0))
         obs_ph = tf.placeholder(tf.float32, shape=[None, 1])
-        mean_op = policy.mean(obs_ph)
-        log_std_op = policy.log_std(obs_ph)
-        pi_op = policy.pi(obs_ph)
+        p = policy(obs_ph)
+        mean_op, log_std_op, pi_op = p.raw_mean, p.log_std, p.pi
 
         train_low = tf.train.AdamOptimizer().minimize(pi_op)
         train_high = tf.train.AdamOptimizer().minimize(-pi_op)
@@ -214,45 +219,94 @@ class UnitTests(unittest.TestCase):
 
     @staticmethod
     def _test_gaussian_log_prob_correct(mean, std):
-        for x in [-1, 0, 1, mean, np.random.rand(),
-                  np.random.normal(loc=mean, scale=std, size=(10, 3))]:
-            if isinstance(x, (int, float)):
-                x = np.array([[x]])
-                n_samples, n_dims = 1, 1
-            else:
-                n_samples, n_dims = x.shape
+        mean = np.float32(mean)
+        log_std = np.log(std).astype(np.float32)
 
-            prob_each_dimension = UnitTests._gaussian_prob(mean, std, x)
-            assert prob_each_dimension.shape == (n_samples, n_dims)
-            prob = np.prod(prob_each_dimension, axis=1, keepdims=True)
-            log_prob = np.log(prob)
-            expected = log_prob
+        for expected_fn, Layer in [(UnitTests._log_gaussian_prob, DiagonalGaussianLogProb),
+                                   (UnitTests._log_tanh_gaussian_probs, TanhDiagonalGaussianLogProb)]:
+            for samples in [-1, 0, 1, mean,
+                            np.random.rand(),
+                            np.random.normal(loc=mean, scale=std, size=(10, 3))]:
+
+                if isinstance(samples, (int, float, np.float32)):
+                    samples = np.array([[samples]])
+                n_samples, n_dims = samples.shape
+
+                samples = samples.astype(np.float32)
+
+                if Layer == TanhDiagonalGaussianLogProb:
+                    log_prob = expected_fn(mean, log_std, samples=samples, tanh_samples=np.tanh(samples))
+                elif Layer == DiagonalGaussianLogProb:
+                    log_prob = expected_fn(mean, log_std, samples)
+                else:
+                    raise RuntimeError()
+                expected = log_prob
+
+                sess = tf.Session()
+                samples_ph, tanh_samples_ph = [tf.placeholder(tf.float32, [None, n_dims])
+                                               for _ in range(2)]
+                if Layer == TanhDiagonalGaussianLogProb:
+                    layer = Layer()(tanh_gaussian_samples=tanh_samples_ph,
+                                    gaussian_samples=samples_ph,
+                                    mean=mean,
+                                    log_std=log_std)
+                elif Layer == DiagonalGaussianLogProb:
+                    layer = Layer()(gaussian_samples=samples_ph,
+                                    mean=mean,
+                                    log_std=log_std)
+                else:
+                    raise RuntimeError()
+                actual = sess.run(layer, feed_dict={samples_ph: samples,
+                                                    tanh_samples_ph: np.tanh(samples)})
+
+                np.testing.assert_array_almost_equal(actual, expected)
+
+    def _test_gaussian_log_prob_finite(self, mean, std):
+        mean = np.float32(mean)
+        std = np.float32(std)
+
+        for samples in [-1, 0, 1, mean, np.random.rand()]:
+            if isinstance(samples, (int, float, np.float32)):
+                samples = np.array([[samples]]).astype(np.float32)
 
             sess = tf.Session()
-            ph = tf.placeholder(tf.float32, [None, n_dims])
-            actual = sess.run(diagonal_gaussian_log_prob(ph, mean=mean, log_std=np.log(std).astype(np.float32)),
-                              feed_dict={ph: x})
-
-            np.testing.assert_array_almost_equal(actual, expected)
+            samples_ph = tf.placeholder(tf.float32, [None, 1])
+            tanh_samples_ph = tf.placeholder(tf.float32, [None, 1])
+            log_prob_op = TanhDiagonalGaussianLogProb()(gaussian_samples=samples_ph,
+                                                        tanh_gaussian_samples=tanh_samples_ph,
+                                                        mean=mean,
+                                                        log_std=np.log(std))
+            log_prob = sess.run(log_prob_op,
+                                feed_dict={samples_ph: samples,
+                                           tanh_samples_ph: np.tanh(samples)})
+            self.assertTrue(np.all(np.isfinite(log_prob)))
 
     @staticmethod
     def _gaussian_prob(mean, std, x):
-        return 1 / np.sqrt(2 * np.pi * std ** 2) * np.exp(-(x - mean) ** 2 / (2 * std ** 2))
+        probs_each_dim = 1 / np.sqrt(2 * np.pi * std ** 2) * np.exp(-(x - mean) ** 2 / (2 * std ** 2))
+        prob = np.product(probs_each_dim, axis=1, keepdims=True)
+        return prob
 
     @staticmethod
-    def _tanh_gaussian_prob(mean, std, x):
-        return UnitTests._gaussian_prob(mean, std, np.arctanh(x)) / (1 - x ** 2)
+    def _log_gaussian_prob(mean, log_std, samples):
+        std = np.exp(log_std)
+        log_probs_each_dim = -0.5 * np.log(2 * np.pi) - log_std - (samples - mean) ** 2 / (2 * std ** 2 + EPS)
+        prob = np.sum(log_probs_each_dim, axis=1, keepdims=True)
+        return prob
 
-    def _test_gaussian_log_prob_finite(self, mean, std):
-        for x in [-1, 0, 1, mean, np.random.rand()]:
-            if isinstance(x, (int, float)):
-                x = np.array([x])
+    @staticmethod
+    def _tanh_gaussian_prob(mean, std, tanh_samples):
+        prob = UnitTests._gaussian_prob(mean, std, np.arctanh(tanh_samples))
+        correction = np.product((1 - tanh_samples ** 2), axis=1, keepdims=True)
+        prob /= correction
+        return prob
 
-            sess = tf.Session()
-            ph = tf.placeholder(tf.float32, [None, 1])
-            log_prob = sess.run(diagonal_gaussian_log_prob(ph, mean=mean, log_std=np.log(std).astype(np.float32)),
-                                feed_dict={ph: [x]})
-            self.assertTrue(np.all(np.isfinite(log_prob)))
+    @staticmethod
+    def _log_tanh_gaussian_probs(mean, log_std, samples, tanh_samples):
+        log_prob = UnitTests._log_gaussian_prob(mean, log_std, samples)
+        correction = np.sum(np.log(1 - tanh_samples ** 2 + EPS), axis=1, keepdims=True)
+        log_prob -= correction
+        return log_prob
 
     @staticmethod
     def _get_v_targ(model: SACModel, obs):
