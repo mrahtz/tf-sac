@@ -87,6 +87,24 @@ class UnitTests(unittest.TestCase):
 
         show()
 
+    def test_pi_prob(self):
+        obs_dim = 3
+        policy = get_diagonal_gaussian_model(obs_dim=obs_dim, n_actions=1,
+                                             act_lim=np.array([1]), std_min_max=(0.1, 1.0))
+        obs_ph = tf.placeholder(tf.float32, [None, obs_dim])
+        mean_op, log_std_op, pi_op, log_prob_pi_op = \
+            policy.mean(obs_ph), policy.log_std(obs_ph), policy.pi(obs_ph), policy.log_prob_pi(obs_ph)
+
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+        obs = np.random.rand(1, obs_dim).astype(np.float32)
+        mean, log_std, pi, log_prob_pi = sess.run([mean_op, log_std_op, pi_op, log_prob_pi_op],
+                                                  feed_dict={obs_ph: obs})
+
+        actual = log_prob_pi
+        expected = np.log(self._tanh_gaussian_prob(mean, np.exp(log_std), pi))
+        np.testing.assert_approx_equal(actual, expected)
+
     @staticmethod
     def _get_tanh_gaussian_samples(mean, log_std, n_samples):
         sample_op = tf.tanh(diagonal_gaussian_sample(mean=[mean] * n_samples,
@@ -205,7 +223,7 @@ class UnitTests(unittest.TestCase):
             else:
                 n_samples, n_dims = x.shape
 
-            prob_each_dimension = 1 / np.sqrt(2 * np.pi * std ** 2) * np.exp(-(x - mean) ** 2 / (2 * std ** 2))
+            prob_each_dimension = UnitTests._gaussian_prob(mean, std, x)
             assert prob_each_dimension.shape == (n_samples, n_dims)
             prob = np.prod(prob_each_dimension, axis=1, keepdims=True)
             log_prob = np.log(prob)
@@ -217,6 +235,14 @@ class UnitTests(unittest.TestCase):
                               feed_dict={ph: x})
 
             np.testing.assert_array_almost_equal(actual, expected)
+
+    @staticmethod
+    def _gaussian_prob(mean, std, x):
+        return 1 / np.sqrt(2 * np.pi * std ** 2) * np.exp(-(x - mean) ** 2 / (2 * std ** 2))
+
+    @staticmethod
+    def _tanh_gaussian_prob(mean, std, x):
+        return UnitTests._gaussian_prob(mean, std, np.arctanh(x)) / (1 - x ** 2)
 
     def _test_gaussian_log_prob_finite(self, mean, std):
         for x in [-1, 0, 1, mean, np.random.rand()]:
@@ -238,6 +264,10 @@ class UnitTests(unittest.TestCase):
     def _get_v_main(model: SACModel, obs):
         v_main = model.sess.run(model.v_main_obs1, feed_dict={model.obs1: [obs]})[0]
         return v_main
+
+    @staticmethod
+    def _get_model(obs_dim):
+        return UnitTests._get_model_with_polyak_coef(obs_dim, polyak_coef=0.995, seed=0)
 
     @staticmethod
     def _get_model_with_polyak_coef(obs_dim, polyak_coef, seed=0):
