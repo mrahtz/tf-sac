@@ -11,6 +11,7 @@ tensorflow = "==1.13.1"
 easy-tf-log = "==1.10"
 sacred = "==0.7.5"
 gym = "==0.13.0"
+pyglet = "==1.3.2"  # Required for gym
 pymongo = "*"  # Optional sacred dependency
 
 [requires]
