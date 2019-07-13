@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 import tensorflow as tf
 
-from keras_utils import NamedInputsLayer, Squash, clip_but_pass_gradient, Policy, PolicyOps, LinearOutputMLP
+from sac.keras_utils import NamedInputsLayer, Squash, clip_but_pass_gradient, Policy, PolicyOps, LinearOutputMLP
 
 EPS = 1e-8
 

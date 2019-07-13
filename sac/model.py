@@ -3,9 +3,9 @@ import time
 
 import tensorflow as tf
 
-from keras_utils import LinearOutputMLP, NamedInputsModel
-from policies import TanhDiagonalGaussianPolicy
-from replay_buffer import ReplayBatch
+from sac.keras_utils import LinearOutputMLP, NamedInputsModel
+from sac.policies import TanhDiagonalGaussianPolicy
+from sac.replay_buffer import ReplayBatch
 
 
 class Q(NamedInputsModel, LinearOutputMLP):

@@ -1,6 +1,6 @@
 import unittest
 
-import train
+from sac import train
 
 
 class SmokeTests(unittest.TestCase):

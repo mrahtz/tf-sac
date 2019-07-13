@@ -4,10 +4,10 @@ import numpy as np
 import tensorflow as tf
 from matplotlib.pyplot import hist, show, legend, plot, subplot, ylim, title
 
-from model import SACModel
-from policies import TanhDiagonalGaussianPolicy, DiagonalGaussianSample, TanhDiagonalGaussianLogProb, \
+from sac.model import SACModel
+from sac.policies import TanhDiagonalGaussianPolicy, DiagonalGaussianSample, TanhDiagonalGaussianLogProb, \
     EPS
-from utils import tf_disable_warnings, tf_disable_deprecation_warnings
+from sac.utils import tf_disable_warnings, tf_disable_deprecation_warnings
 
 tf_disable_warnings()
 tf_disable_deprecation_warnings()

@@ -9,9 +9,9 @@ matplotlib = "*"
 [packages]
 tensorflow = "==1.13.1"
 mujoco-py = "==1.50.1.68"
-easy-tf-log = "*"
-sacred = "*"
-gym = "*"
+easy-tf-log = "==1.10"
+sacred = "==0.7.5"
+gym = "==0.13.0"
 
 [requires]
 python_version = "3.7"

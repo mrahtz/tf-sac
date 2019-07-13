@@ -6,11 +6,11 @@ import numpy as np
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
 
-import config
-from env import make_env
-from model import SACModel
-from replay_buffer import ReplayBuffer
-from utils import tf_disable_warnings, tf_disable_deprecation_warnings, RateMeasure
+import sac.config
+from sac.env import make_env
+from sac.model import SACModel
+from sac.replay_buffer import ReplayBuffer
+from sac.utils import tf_disable_warnings, tf_disable_deprecation_warnings, RateMeasure
 
 tf_disable_warnings()
 tf_disable_deprecation_warnings()
@@ -18,7 +18,7 @@ tf_disable_deprecation_warnings()
 ex = Experiment('sac')
 observer = FileStorageObserver.create('runs')
 ex.observers.append(observer)
-ex.add_config(config.default_config)
+ex.add_config(sac.config.default_config)
 
 
 @ex.capture

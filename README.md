@@ -8,3 +8,10 @@ Lessons learned:
 * Don't forget to limit which vars you optimize for
 * stop_backup
 * Nice Pycharm shortcuts
+
+## Tests
+
+To run tests:
+```bash
+$ python -m unittest discover
+```
