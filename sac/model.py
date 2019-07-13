@@ -1,7 +1,10 @@
 import os
+import pickle
 import time
+from glob import glob
 
 import tensorflow as tf
+from gym.utils.atomic_write import atomic_write
 
 from sac.keras_utils import LinearOutputMLP, NamedInputsModel
 from sac.policies import TanhDiagonalGaussianPolicy
@@ -18,7 +21,7 @@ class SACModel:
 
     def __init__(self, obs_dim, n_actions, act_lim, seed, discount, temperature, polyak_coef, lr, std_min_max,
                  network, save_dir=None):
-        self.args_copy = self.args_from_locals(locals())
+        self.args_copy = self._args_from_locals(locals())
         self.n_actions = n_actions
         self.save_dir = save_dir
 
@@ -97,6 +100,8 @@ class SACModel:
                 v_targ_polyak_update_ops.append(update_op)
             v_targ_polyak_update_op = tf.group(v_targ_polyak_update_ops)
 
+            restore_ops, restore_phs = self._get_restore_ops()
+
             config = tf.ConfigProto()
             config.gpu_options.allow_growth = True
             sess = tf.Session(config=config)
@@ -106,25 +111,20 @@ class SACModel:
             self.v_main_obs1 = v_main_model(obs1)
             self.v_targ_obs1 = v_targ_model(obs1)
 
-            self.obs1 = obs1
-            self.obs2 = obs2
-            self.acts = acts
-            self.rews = rews
-            self.done = done
-            self.pi_obs1 = pi_obs1
-            self.mu_obs1 = mean_obs1
-            self.sess = sess
-            self.saver = saver
-            self.obs_dim = obs_dim
-            self.v_targ_polyak_update_op = v_targ_polyak_update_op
-            self.q_loss = q1_loss + q2_loss
+        self.obs1 = obs1
+        self.obs2 = obs2
+        self.acts = acts
+        self.rews = rews
+        self.done = done
+        self.pi_obs1 = pi_obs1
+        self.mu_obs1 = mean_obs1
+        self.sess = sess
+        self.obs_dim = obs_dim
+        self.v_targ_polyak_update_op = v_targ_polyak_update_op
+        self.q_loss = q1_loss + q2_loss
 
-    @staticmethod
-    def args_from_locals(locals_dict):
-        locals_dict = dict(locals_dict)
-        del locals_dict['self']
-        locals_dict['save_dir'] = None
-        return locals_dict
+        self.restore_phs = restore_phs
+        self.restore_ops = restore_ops
 
     def step(self, obs, deterministic):
         assert obs.shape == (self.obs_dim,)
@@ -144,29 +144,57 @@ class SACModel:
                                               self.done: batch.done})
         return loss
 
+    @staticmethod
+    def _args_from_locals(locals_dict):
+        locals_dict = dict(locals_dict)
+        del locals_dict['self']
+        locals_dict['save_dir'] = None
+        return locals_dict
+
+    @staticmethod
+    def _get_restore_ops():
+        restore_ops, restore_phs = [], {}
+        for param in tf.trainable_variables():
+            ph = tf.placeholder(tf.float32, param.shape)
+            op = param.assign(ph)
+            restore_ops.append(op)
+            restore_phs[param.name] = ph
+        return restore_ops, restore_phs
+
     def save(self):
         save_id = int(time.time())
-        self.saver.save(self.sess, os.path.join(self.save_dir, 'model'), save_id)
+        with atomic_write(os.path.join(self.save_dir, f'model-{save_id}.pkl'), binary=True) as f:
+            pickle.dump(self, f)
+        with atomic_write(os.path.join(self.save_dir, f'weights-{save_id}.pkl'), binary=True) as f:
+            pickle.dump(self._get_params(), f)
 
     def load(self, load_dir):
-        ckpt = tf.train.latest_checkpoint(load_dir)
-        self.saver.restore(self.sess, ckpt)
+        ckpts = glob(os.path.join(load_dir, 'weights-*.pkl'))
+        ckpts.sort(key=lambda p: os.path.getmtime(p))
+        latest_ckpt = ckpts[-1]
+        with open(latest_ckpt, 'rb') as f:
+            params = pickle.load(f)
+        self.restore_params(params)
 
-    def __getstate__(self):
+    def restore_params(self, params):
+        feed_dict = {self.restore_phs[param_name]: param_value
+                     for param_name, param_value in params.items()}
+        self.sess.run(self.restore_ops, feed_dict=feed_dict)
+
+    def _get_params(self):
         with self.graph.as_default():
             params = tf.trainable_variables()
         names = [p.name for p in params]
         values = self.sess.run(params)
         params = {k: v for k, v in zip(names, values)}
+        return params
+
+    def __getstate__(self):
+        params = self._get_params()
         state = self.args_copy, params
         return state
 
     def __setstate__(self, state):
         args, params = state
         self.__init__(**args)
-        with self.graph.as_default():
-            ops = []
-            for param in tf.trainable_variables():
-                assign = param.assign(params[param.name])
-                ops.append(assign)
-            self.sess.run(ops)
+        self.restore_params(params)

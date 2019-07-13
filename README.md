@@ -31,7 +31,13 @@ See [config.py](sac/config.py) for available parameters, and set parameters usin
 $ pipenv run python -m sac.train with env_id=HalfCheetah-v2 render=True
 ```
 
-A run directory will be created in `runs/` containing TensorBoard metrics and videos of test episodes.
+A run directory will be created in `runs/` containing TensorBoard metrics.
+
+To view a trained agent:
+
+```bash
+$ pipenv run python -m sac.play env_id runs/x/checkpoints/<model-yyy.pkl
+```
 
 ### Tests
 

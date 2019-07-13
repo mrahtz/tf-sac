@@ -8,7 +8,6 @@ default_config = dict(
     checkpoint_every_n_steps=1000,
     test_every_n_steps=5000,
     async_test=False,
-    render=False,
     buffer_size=int(1e6),
     lr=1e-3,
     env_id='Pendulum-v0',
