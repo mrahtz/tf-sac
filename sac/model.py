@@ -17,7 +17,7 @@ class Q(NamedInputsModel, LinearOutputMLP):
 class SACModel:
 
     def __init__(self, obs_dim, n_actions, act_lim, seed, discount, temperature, polyak_coef, lr, std_min_max,
-                 save_dir=None):
+                 network, save_dir=None):
         self.args_copy = self.args_from_locals(locals())
         self.n_actions = n_actions
         self.save_dir = save_dir
@@ -32,14 +32,15 @@ class SACModel:
             rews = tf.placeholder(tf.float32, [None, 1])
             done = tf.placeholder(tf.float32, [None, 1])
 
-            policy_model = TanhDiagonalGaussianPolicy(n_actions=n_actions, act_lim=act_lim, std_min_max=std_min_max)
+            policy_model = TanhDiagonalGaussianPolicy(network=network, n_actions=n_actions,
+                                                      act_lim=act_lim, std_min_max=std_min_max)
             ops = policy_model(obs1)
             mean_obs1, pi_obs1, log_prob_pi_obs1 = ops.mean, ops.pi, ops.log_prob_pi
 
-            q1_model = Q(n_outputs=1)
-            q2_model = Q(n_outputs=1)
-            v_main_model = LinearOutputMLP(n_outputs=1)
-            v_targ_model = LinearOutputMLP(n_outputs=1)
+            q1_model = Q(network, n_outputs=1)
+            q2_model = Q(network, n_outputs=1)
+            v_main_model = LinearOutputMLP(network, n_outputs=1)
+            v_targ_model = LinearOutputMLP(network, n_outputs=1)
 
             q1_obs1_acts = q1_model(obs=obs1, act=acts)
             q2_obs1_acts = q2_model(obs=obs1, act=acts)

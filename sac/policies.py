@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 import tensorflow as tf
@@ -9,7 +9,8 @@ EPS = 1e-8
 
 
 class TanhDiagonalGaussianPolicy(Policy):
-    def __init__(self, n_actions: int, act_lim: np.ndarray, std_min_max: Tuple[float, float]):
+    def __init__(self, network: List[Tuple[int, str]], n_actions: int,
+                 act_lim: np.ndarray, std_min_max: Tuple[float, float]):
         assert act_lim.shape == (n_actions,)
         assert len(std_min_max) == 2
         super().__init__()
@@ -17,8 +18,8 @@ class TanhDiagonalGaussianPolicy(Policy):
         self.log_std_min, self.log_std_max = np.log(std_min_max)
         self.act_lim = act_lim
 
-        self.mean = LinearOutputMLP(n_actions)
-        self.log_std = LinearOutputMLP(n_actions)
+        self.mean = LinearOutputMLP(network, n_actions)
+        self.log_std = LinearOutputMLP(network, n_actions)
 
     def call(self, obses, **kwargs):
         mean = self.mean(obses)

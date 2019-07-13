@@ -4,13 +4,14 @@ import sys
 import easy_tf_log
 import gym
 from gym.core import Wrapper
+from gym.wrappers import Monitor
 
 
 class LogRewards(Wrapper):
-    def __init__(self, env, logger, test_or_train):
+    def __init__(self, env, logger, suffix):
         super().__init__(env)
         self.logger = logger
-        self.test_or_train = test_or_train
+        self.suffix = suffix
         self.episode_reward = None
 
     def reset(self, **kwargs):
@@ -22,16 +23,21 @@ class LogRewards(Wrapper):
         obs, reward, done, info = self.env.step(action)
         self.episode_reward += reward
         if done:
-            if self.test_or_train == 'test':
-                print(f"{self.test_or_train.capitalize()} episode done; reward {self.episode_reward}")
+            if self.suffix == 'test':
+                print(f"{self.suffix.capitalize()} episode done; reward {self.episode_reward}")
                 sys.stdout.flush()
-            self.logger.logkv(f'env_{self.test_or_train}/episode_reward', self.episode_reward)
+            self.logger.logkv(f'env_{self.suffix}/episode_reward', self.episode_reward)
         return obs, reward, done, info
 
 
-def make_env(env_id, seed, log_dir, test_or_train):
+def make_env(env_id, seed, log_dir, suffix, record_videos):
+    log_dir = os.path.join(log_dir, f'env_{suffix}')
+
     env = gym.make(env_id)
     env.seed(seed)
-    logger = easy_tf_log.Logger(os.path.join(log_dir, f'env_{test_or_train}'))
-    env = LogRewards(env, logger, test_or_train)
+
+    env = Monitor(env, directory=log_dir, video_callable=lambda n: record_videos)
+    logger = easy_tf_log.Logger(log_dir)
+    env = LogRewards(env, logger, suffix)
+
     return env

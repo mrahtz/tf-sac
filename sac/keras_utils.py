@@ -1,4 +1,5 @@
 from collections import namedtuple
+from typing import List, Tuple
 
 import tensorflow as tf
 from tensorflow.python.keras import Model
@@ -9,11 +10,12 @@ PolicyOps = namedtuple('PolicyOps', 'raw_mean mean log_std pi log_prob_pi')
 
 
 class LinearOutputMLP(Model):
-    def __init__(self, n_outputs):
+    def __init__(self, network: List[Tuple[int, str]], n_outputs):
         super().__init__()
-        self._layers = [Dense(256, activation='relu'),
-                        Dense(256, activation='relu'),
-                        Dense(n_outputs, activation=None)]
+        self._layers = []
+        for n_units, activation in network:
+            self._layers.append(Dense(n_units, activation))
+        self._layers.append(Dense(n_outputs, activation=None))
 
     def call(self, x, **kwargs):
         if isinstance(x, list):
