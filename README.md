@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.com/mrahtz/tf-sac.svg?branch=master)](https://travis-ci.com/mrahtz/tf-sac)
 
-# tf-sac
+# TensorFlow Soft Actor-Critic
 
 TensorFlow implementation of Haarnoja et al.'s [Soft Actor-Critic](https://arxiv.org/abs/1801.01290).
 
