@@ -88,7 +88,7 @@ def run_test_env(model, model_load_dir, render, env_id, seed, log_dir):
 def main(gamma, buffer_size, lr, render, seed, env_id, polyak_coef, temperature, policy_std_min, policy_std_max,
          async_test, network):
     train_env = make_env(env_id, seed, observer.dir, 'train', record_videos=False)
-    test_env = make_env(env_id, seed, observer.dir, 'test_sync', record_videos=True)
+    test_env = make_env(env_id, seed, observer.dir, 'test', record_videos=True)
 
     buffer = ReplayBuffer(train_env.observation_space.shape, train_env.action_space.shape, max_size=buffer_size)
     obs_dim = train_env.observation_space.shape[0]
