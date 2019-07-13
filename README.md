@@ -1,3 +1,10 @@
+[![Build Status](https://travis-ci.com/mrahtz/tf-sac.svg?branch=master)](https://travis-ci.com/mrahtz/tf-sac)
+
+## Requirements
+
+Install MuJoco separately.
+
+****
 Lessons learned:
 * Gaussian likelihood
 * Keras really nice for making equations look good

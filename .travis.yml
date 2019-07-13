@@ -2,6 +2,8 @@ language: python
 python:
   - "3.6"
 install:
+  - sudo apt-get install xvfb
   - pipenv sync
+  - pipenv sync --dev
 script:
-  - pipenv run python -m unittest discover
+  - pipenv run xvfb-run -s "-screen 0 1400x900x24" python -m unittest discover
