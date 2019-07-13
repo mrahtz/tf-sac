@@ -4,7 +4,6 @@ import numpy as np
 import tensorflow as tf
 from matplotlib.pyplot import hist, show, legend, plot, subplot, ylim, title
 
-from keras_utils import Tanh
 from model import SACModel
 from policies import TanhDiagonalGaussianPolicy, DiagonalGaussianSample, TanhDiagonalGaussianLogProb, \
     EPS
@@ -76,7 +75,8 @@ class UnitTests(unittest.TestCase):
         v_main = model.sess.run(model.v_main_obs1, feed_dict={model.obs1: [obs]})[0]
         return v_main
 
-    def test_log_tanh_gaussian_probs(self):
+    @staticmethod
+    def test_log_tanh_gaussian_probs():
         mean = 0.0
         log_std = np.log(1.0)
         samples = np.array([[0.5]])
@@ -257,7 +257,7 @@ class UnitTests(unittest.TestCase):
     @staticmethod
     def _get_tanh_gaussian_samples(mean, log_std, n_samples):
         samples_op = DiagonalGaussianSample()(mean=[mean] * n_samples, log_std=[log_std] * n_samples)
-        tanh_samples_op = Tanh()(samples_op)
+        tanh_samples_op = tf.tanh(samples_op)
         sess = tf.Session()
         samples_op = sess.run(tanh_samples_op)
         return samples_op

@@ -2,9 +2,8 @@ from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.keras.layers import Dense
 
-from keras_utils import NamedInputsLayer, Scale, Tanh, Squash, clip_but_pass_gradient, Policy, MLPFeatures, PolicyOps
+from keras_utils import NamedInputsLayer, Squash, clip_but_pass_gradient, Policy, PolicyOps, LinearOutputMLP
 
 EPS = 1e-8
 
@@ -18,23 +17,20 @@ class TanhDiagonalGaussianPolicy(Policy):
         self.log_std_min, self.log_std_max = np.log(std_min_max)
         self.act_lim = act_lim
 
-        self.features = MLPFeatures()
-        self.mean = Dense(n_actions, activation=None)
-        self.log_std = Dense(n_actions, activation=None)
+        self.mean = LinearOutputMLP(n_actions)
+        self.log_std = LinearOutputMLP(n_actions)
 
     def call(self, obses, **kwargs):
-        features = self.features(obses)
-
-        mean = self.mean(features)
-        log_std = self.log_std(features)
+        mean = self.mean(obses)
+        log_std = self.log_std(obses)
 
         # Limit range of log_std to prevent numerical errors if it gets too large
-        log_std = Tanh()(log_std)
+        log_std = tf.tanh(log_std)
         log_std = Squash(in_min=-1, in_max=1, out_min=self.log_std_min, out_max=self.log_std_max)(log_std)
 
         pi = DiagonalGaussianSample()(mean=mean, log_std=log_std)
 
-        tanh_pi = Tanh()(pi)
+        tanh_pi = tf.tanh(pi)
         log_prob_tanh_pi = TanhDiagonalGaussianLogProb()(gaussian_samples=pi,
                                                          tanh_gaussian_samples=tanh_pi,
                                                          mean=mean,
@@ -43,10 +39,10 @@ class TanhDiagonalGaussianPolicy(Policy):
         # Note that we limit the mean /after/ we've taken samples.
         # Otherwise, we would limit the mean, then also limit the sample,
         # leading to actions of scale tanh(1) when std is small.
-        tanh_mean = Tanh()(mean)
+        tanh_mean = tf.tanh(mean)
 
-        scaled_tanh_pi = Scale(self.act_lim)(tanh_pi)
-        scaled_tanh_mean = Scale(self.act_lim)(tanh_mean)
+        scaled_tanh_pi = tanh_pi * self.act_lim
+        scaled_tanh_mean = tanh_mean * self.act_lim
 
         return PolicyOps(
             raw_mean=mean, mean=scaled_tanh_mean,
@@ -66,13 +62,16 @@ class TanhDiagonalGaussianLogProb(NamedInputsLayer):
     def call_named(self, gaussian_samples, tanh_gaussian_samples, mean, log_std):
         assert len(gaussian_samples.shape) == 2
         assert len(tanh_gaussian_samples.shape) == 2
+
         log_prob = DiagonalGaussianLogProb()(gaussian_samples=gaussian_samples,
                                              mean=mean,
                                              log_std=log_std)
         # tf.tanh can sometimes be > 1 due to precision errors
         tanh_gaussian_samples = clip_but_pass_gradient(tanh_gaussian_samples, low=-1, high=1)
+
         correction = tf.reduce_sum(tf.log(1 - tanh_gaussian_samples ** 2 + EPS), axis=1, keepdims=True)
         log_prob -= correction
+
         return log_prob
 
 

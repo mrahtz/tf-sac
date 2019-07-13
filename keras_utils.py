@@ -5,43 +5,22 @@ from tensorflow.python.keras import Model
 from tensorflow.python.keras.layers import Dense, Concatenate
 from tensorflow.python.layers.base import Layer
 
+PolicyOps = namedtuple('PolicyOps', 'raw_mean mean log_std pi log_prob_pi')
 
-class MLP(Model):
+
+class LinearOutputMLP(Model):
     def __init__(self, n_outputs):
         super().__init__()
-        self.features = MLPFeatures()
-        self.dense = Dense(n_outputs, activation=None)
+        self._layers = [Dense(256, activation='relu'),
+                        Dense(256, activation='relu'),
+                        Dense(n_outputs, activation=None)]
 
     def call(self, x, **kwargs):
-        x = self.features(x)
-        x = self.dense(x)
+        if isinstance(x, list):
+            x = Concatenate(axis=-1)(x)
+        for layer in self._layers:
+            x = layer(x)
         return x
-
-
-class MLPFeatures(Model):
-    def __init__(self):
-        super().__init__()
-        self.ls = [Dense(256, activation='relu'),
-                   Dense(256, activation='relu')]
-
-    def call(self, x, **kwargs):
-        for l in self.ls:
-            x = l(x)
-        return x
-
-
-class NamedInputsModel(Model):
-    def __call__(self, **kwargs):
-        self.names, inputs = list(zip(*kwargs.items()))
-        return super().__call__(inputs=inputs)
-
-    # noinspection PyMethodOverriding
-    def call(self, inputs):
-        kwargs = dict(zip(self.names, inputs))
-        return self.call_named(**kwargs)
-
-    def call_named(self, **kwargs):
-        raise NotImplementedError()
 
 
 class NamedInputsLayer(Layer):
@@ -58,26 +37,23 @@ class NamedInputsLayer(Layer):
         raise NotImplementedError()
 
 
-PolicyOps = namedtuple('PolicyOps', 'raw_mean mean log_std pi log_prob_pi')
+class NamedInputsModel(Model):
+    def __call__(self, **kwargs):
+        self.names, inputs = list(zip(*kwargs.items()))
+        return super().__call__(inputs=inputs)
+
+    # noinspection PyMethodOverriding
+    def call(self, inputs):
+        kwargs = dict(zip(self.names, inputs))
+        return self.call_named(**kwargs)
+
+    def call_named(self, **kwargs):
+        raise NotImplementedError()
 
 
 class Policy(Model):
     def __call__(self, inputs, *args, **kwargs) -> PolicyOps:
         return super().__call__(inputs, *args, **kwargs)
-
-
-class Scale(Layer):
-    def __init__(self, scale):
-        super().__init__()
-        self.scale = scale
-
-    def call(self, x, **kwargs):
-        return x * self.scale
-
-
-class Tanh(Layer):
-    def call(self, x, **kwargs):
-        return tf.tanh(x)
 
 
 class Squash(Layer):
@@ -99,20 +75,3 @@ def clip_but_pass_gradient(x, low=-1., high=1.):
     clip_up = tf.cast(x > high, tf.float32)
     clip_low = tf.cast(x < low, tf.float32)
     return x + tf.stop_gradient((high - x) * clip_up + (low - x) * clip_low)
-
-
-class Q(NamedInputsModel):
-    def __init__(self, obs_dim, n_actions):
-        super().__init__()
-        self.obs_dim = obs_dim
-        self.n_actions = n_actions
-        self.mlp = MLP(n_outputs=1)
-
-    def call_named(self, obs, act):
-        assert obs.shape.as_list() == [None, self.obs_dim]
-        assert act.shape.as_list() == [None, self.n_actions]
-        obs_act = Concatenate(axis=-1)([obs, act])
-        assert obs_act.shape.as_list() == [None, self.obs_dim + self.n_actions]
-        q = self.mlp(obs_act)
-        assert q.shape.as_list() == [None, 1]
-        return q

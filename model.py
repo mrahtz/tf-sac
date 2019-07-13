@@ -3,9 +3,15 @@ import time
 
 import tensorflow as tf
 
-from keras_utils import MLP, Q
+from keras_utils import LinearOutputMLP, NamedInputsModel
 from policies import TanhDiagonalGaussianPolicy
 from replay_buffer import ReplayBatch
+
+
+class Q(NamedInputsModel, LinearOutputMLP):
+    # Wrapper enforcing consistent concatenation order of obs and act
+    def call_named(self, obs, act):
+        return LinearOutputMLP.call(self, [obs, act])
 
 
 class SACModel:
@@ -30,10 +36,10 @@ class SACModel:
             ops = policy_model(obs1)
             mean_obs1, pi_obs1, log_prob_pi_obs1 = ops.mean, ops.pi, ops.log_prob_pi
 
-            q1_model = Q(obs_dim, n_actions)
-            q2_model = Q(obs_dim, n_actions)
-            v_main_model = MLP(n_outputs=1)
-            v_targ_model = MLP(n_outputs=1)
+            q1_model = Q(n_outputs=1)
+            q2_model = Q(n_outputs=1)
+            v_main_model = LinearOutputMLP(n_outputs=1)
+            v_targ_model = LinearOutputMLP(n_outputs=1)
 
             q1_obs1_acts = q1_model(obs=obs1, act=acts)
             q2_obs1_acts = q2_model(obs=obs1, act=acts)
