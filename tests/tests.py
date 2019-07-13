@@ -110,7 +110,7 @@ class UnitTests(unittest.TestCase):
             if isinstance(samples, (int, float, np.float32)):
                 samples = np.array([[samples]])
             samples = samples.astype(np.float32)
-            n_samples, n_dims = samples.shape
+            _, n_dims = samples.shape
 
             expected_log_prob = UnitTests._log_tanh_gaussian_probs(mean, log_std, samples=samples,
                                                                    tanh_samples=np.tanh(samples))
@@ -234,11 +234,11 @@ class UnitTests(unittest.TestCase):
 
     def _check_actions_saturated(self, act_lim, mean, log_std, pi, train_low, train_high):
         assert np.array(mean).shape == np.array(log_std).shape == np.array(pi).shape == (1, 2)
-        for i in range(len(act_lim)):
+        for i, lim in enumerate(act_lim):
             if train_high:
-                self.assertAlmostEqual(pi[0][i], act_lim[i], places=2)
+                self.assertAlmostEqual(pi[0][i], lim, places=2)
             elif train_low:
-                self.assertAlmostEqual(pi[0][i], -act_lim[i], places=2)
+                self.assertAlmostEqual(pi[0][i], -lim, places=2)
             else:
                 raise RuntimeError()
 

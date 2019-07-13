@@ -36,9 +36,9 @@ A run directory will be created in `runs/` containing TensorBoard metrics and vi
 ### Tests
 
 Unit tests cover:
-  * Target network update
-  * Gaussian policy log prob calculation
-  * Action limit
+*   Target network update
+*   Gaussian policy log prob calculation
+*   Action limit
 
 To run tests:
 
@@ -59,7 +59,7 @@ to figure out how the tanh modifies the PDF (see <https://math.stackexchange.com
 
 tanh reaches the limit of float32 precision surprisingly quickly:
 
-```
+```python
 >>> np.tanh(19)
 0.99999999999999989
 >>> np.tanh(20)
@@ -142,7 +142,7 @@ Don't forget to `tf.stop_gradient` your Bellman backups!
 
 What about this one?
 
-```
+```python
 q_loss = (q_obs1 - q_backup) ** 2
 train_op = tf.train.AdamOptimizer().minimize(q_loss)
 ```

@@ -52,7 +52,7 @@ class TanhDiagonalGaussianPolicy(Policy):
 
 
 class DiagonalGaussianSample(NamedInputsLayer):
-    def call_named(self, mean, log_std):
+    def call_named(self, *, mean, log_std):
         eps = tf.random.normal(tf.shape(mean))
         std = tf.exp(log_std)
         sample = mean + std * eps
@@ -60,7 +60,7 @@ class DiagonalGaussianSample(NamedInputsLayer):
 
 
 class TanhDiagonalGaussianLogProb(NamedInputsLayer):
-    def call_named(self, gaussian_samples, tanh_gaussian_samples, mean, log_std):
+    def call_named(self, *, gaussian_samples, tanh_gaussian_samples, mean, log_std):
         assert len(gaussian_samples.shape) == 2
         assert len(tanh_gaussian_samples.shape) == 2
 
@@ -77,7 +77,7 @@ class TanhDiagonalGaussianLogProb(NamedInputsLayer):
 
 
 class DiagonalGaussianLogProb(NamedInputsLayer):
-    def call_named(self, gaussian_samples, mean, log_std):
+    def call_named(self, *, gaussian_samples, mean, log_std):
         assert len(gaussian_samples.shape) == 2
         n_dims = gaussian_samples.shape[1]
         assert gaussian_samples.shape.as_list() == [None, n_dims]
