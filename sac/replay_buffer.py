@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 
 
@@ -41,7 +43,7 @@ class ReplayBuffer:
             self.len += 1
 
     def sample(self, batch_size) -> ReplayBatch:
-        idxs = np.random.choice(self.len, size=batch_size, replace=False)
+        idxs = random.sample(range(self.len), batch_size)
         return ReplayBatch(
             obs1=[self.obs1_buf[i] for i in idxs],
             acts=[self.acts_buf[i] for i in idxs],
