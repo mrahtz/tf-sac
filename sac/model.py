@@ -162,6 +162,17 @@ class SACModel:
         return restore_ops, restore_phs
 
     def save(self):
+        max_n_checkpoints = 2
+        weights = glob(os.path.join(self.save_dir, 'weights-*.pkl'))
+        models = glob(os.path.join(self.save_dir, 'model-*.pkl'))
+        assert len(weights) == len(models)
+        all_ckpts = weights + models
+        all_ckpts.sort(key=lambda p: os.path.getmtime(p))
+        while len(all_ckpts) // 2 >= max_n_checkpoints:
+            for ckpt in all_ckpts[:2]:
+                os.remove(ckpt)
+            all_ckpts = all_ckpts[2:]
+
         save_id = int(time.time())
         with atomic_write(os.path.join(self.save_dir, f'model-{save_id}.pkl'), binary=True) as f:
             pickle.dump(self, f)
