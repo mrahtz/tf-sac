@@ -52,6 +52,12 @@ To run tests:
 $ pipenv run python -m unittest discover
 ```
 
+To run only smoke tests, confirming that `train.py` runs without crashing:
+
+```bash
+$ pipenv run python -m tests.tests_smoke
+```
+
 ## Lessons learned
 
 ### Stochastic policies
