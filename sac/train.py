@@ -52,10 +52,10 @@ def train_sac(buffer: ReplayBuffer, model: SACModel, train_env, test_env, n_star
         if n_steps % log_every_n_steps == 0:
             print(f"Ran {n_steps} steps")
             n_steps_per_second = step_rate_measure.measure(n_steps)
-            logger.logkv('dqn/buffer_size', len(buffer))
-            logger.logkv('dqn/n_steps', n_steps)
-            logger.logkv('dqn/n_steps_per_second', n_steps_per_second)
-            logger.logkv('dqn/loss', np.mean(losses))
+            logger.logkv('sac/buffer_size', len(buffer))
+            logger.logkv('sac/n_steps', n_steps)
+            logger.logkv('sac/n_steps_per_second', n_steps_per_second)
+            logger.logkv('sac/loss', np.mean(losses))
             losses = []
 
         if n_steps % test_every_n_steps == 0:
