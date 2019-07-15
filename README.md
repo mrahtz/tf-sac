@@ -53,7 +53,7 @@ A run directory will be created in `runs/` containing TensorBoard metrics.
 To view a trained agent:
 
 ```bash
-$ pipenv run python -m sac.play env_id runs/x/checkpoints/<model-yyy.pkl
+$ pipenv run python -m sac.play env_id runs/x/checkpoints/model-yyy.pkl
 ```
 
 ### Tests
