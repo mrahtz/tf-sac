@@ -4,6 +4,23 @@
 
 TensorFlow implementation of Haarnoja et al.'s [Soft Actor-Critic](https://arxiv.org/abs/1801.01290).
 
+## Results
+
+Testing on `HalfCheetah-v2` and `Walker2d-v2`:
+
+![](images/results.png)
+
+Compared to
+[Spinning Up's implementation](https://spinningup.openai.com/en/latest/spinningup/bench.html),
+we achieve about half the performance on `HalfCheetah` and about the same performance
+on `Walker2d`:
+
+![](images/spinup_results.png)
+
+I'm not sure why HalfCheetah does comparatively so much worse. It may be because
+we train on every environment step instead of in a batch at the end of each episode,
+but I haven't investigated in detail.
+
 ## Usage
 
 ### Setup
