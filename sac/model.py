@@ -3,14 +3,12 @@ import pickle
 import time
 from glob import glob
 
-import easy_tf_log
 import tensorflow as tf
 from gym.utils.atomic_write import atomic_write
 
 from sac.keras_utils import LinearOutputMLP, NamedInputsModel
 from sac.policies import TanhDiagonalGaussianPolicy
 from sac.replay_buffer import ReplayBatch
-from sac.utils import LogMilliseconds
 
 
 class Q(NamedInputsModel, LinearOutputMLP):
@@ -138,16 +136,12 @@ class SACModel:
         return action
 
     def train(self, batch: ReplayBatch):
-        if not hasattr(self, 'logger'):
-            self.logger = easy_tf_log.Logger(os.path.join(self.save_dir, 'train_log'))
-        with LogMilliseconds('train sess.run', self.logger):
-            _, _, loss = self.sess.run([self.train_ops, self.v_targ_polyak_update_op, self.q_loss],
-                                       feed_dict={self.obs1: batch.obs1,
-                                                  self.acts: batch.acts,
-                                                  self.rews: batch.rews,
-                                                  self.obs2: batch.obs2,
-                                                  self.done: batch.done})
-        self.logger.logkv('n_ops', len(self.graph.get_operations()))
+        _, _, loss = self.sess.run([self.train_ops, self.v_targ_polyak_update_op, self.q_loss],
+                                   feed_dict={self.obs1: batch.obs1,
+                                              self.acts: batch.acts,
+                                              self.rews: batch.rews,
+                                              self.obs2: batch.obs2,
+                                              self.done: batch.done})
         return loss
 
     @staticmethod

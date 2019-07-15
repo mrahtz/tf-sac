@@ -10,7 +10,7 @@ import sac.config
 from sac.env import make_env
 from sac.model import SACModel
 from sac.replay_buffer import ReplayBuffer
-from sac.utils import tf_disable_warnings, tf_disable_deprecation_warnings, RateMeasure, LogMilliseconds
+from sac.utils import tf_disable_warnings, tf_disable_deprecation_warnings, RateMeasure
 
 tf_disable_warnings()
 tf_disable_deprecation_warnings()
@@ -34,13 +34,10 @@ def train_sac(buffer: ReplayBuffer, model: SACModel, train_env, test_env, n_star
         if len(buffer) < n_start_env_steps:
             act = train_env.action_space.sample()
         else:
-            with LogMilliseconds('model.step', logger):
-                act = model.step(obs1, deterministic=False)
+            act = model.step(obs1, deterministic=False)
 
-        with LogMilliseconds('train_env.step', logger):
-            obs2, reward, done, _ = train_env.step(act)
-        with LogMilliseconds('buffer.store', logger):
-            buffer.store(obs1=obs1, acts=act, rews=reward, obs2=obs2, done=float(done))
+        obs2, reward, done, _ = train_env.step(act)
+        buffer.store(obs1=obs1, acts=act, rews=reward, obs2=obs2, done=float(done))
         obs1 = obs2
         if done:
             obs1, done = train_env.reset(), False
@@ -48,10 +45,8 @@ def train_sac(buffer: ReplayBuffer, model: SACModel, train_env, test_env, n_star
         if len(buffer) < n_start_env_steps:
             continue
 
-        with LogMilliseconds('buffer.sample', logger):
-            batch = buffer.sample(batch_size=batch_size)
-        with LogMilliseconds('model.train', logger):
-            loss = model.train(batch)
+        batch = buffer.sample(batch_size=batch_size)
+        loss = model.train(batch)
         losses.append(loss)
 
         if n_steps % log_every_n_steps == 0:
@@ -64,12 +59,10 @@ def train_sac(buffer: ReplayBuffer, model: SACModel, train_env, test_env, n_star
             losses = []
 
         if n_steps % test_every_n_steps == 0:
-            with LogMilliseconds('run_test_episodes', logger):
-                run_test_episodes(model, test_env, n_episodes=10, render=False)
+            run_test_episodes(model, test_env, n_episodes=10, render=False)
 
         if n_steps % checkpoint_every_n_steps == 0:
-            with LogMilliseconds('model.save', logger):
-                model.save()
+            model.save()
 
         n_steps += 1
 
