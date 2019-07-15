@@ -173,7 +173,7 @@ class SACModel:
         models = glob(os.path.join(self.save_dir, 'model-*.pkl'))
         assert len(weights) == len(models)
         all_ckpts = weights + models
-        all_ckpts.sort(key=lambda p: os.path.getmtime(p))
+        all_ckpts.sort(key=os.path.getmtime)
         while len(all_ckpts) // 2 >= max_n_checkpoints:
             for ckpt in all_ckpts[:2]:
                 os.remove(ckpt)
@@ -187,7 +187,7 @@ class SACModel:
 
     def load(self, load_dir):
         ckpts = glob(os.path.join(load_dir, 'weights-*.pkl'))
-        ckpts.sort(key=lambda p: os.path.getmtime(p))
+        ckpts.sort(key=os.path.getmtime)
         latest_ckpt = ckpts[-1]
         with open(latest_ckpt, 'rb') as f:
             params = pickle.load(f)
