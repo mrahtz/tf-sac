@@ -58,22 +58,18 @@ $ pipenv run python -m sac.play env_id runs/x/checkpoints/<model-yyy.pkl
 
 ### Tests
 
+To run smoke tests and unit tests, respectively:
+
+```bash
+$ pipenv run python tests.py Smoke
+$ pipenv run python tests.py Unit
+```
+
 Unit tests cover:
 *   Target network update
 *   Gaussian policy log prob calculation
 *   Action limit
 
-To run tests:
-
-```bash
-$ pipenv run python -m unittest discover
-```
-
-To run only smoke tests, confirming that `train.py` runs without crashing:
-
-```bash
-$ pipenv run python -m tests.tests_smoke
-```
 
 ## Lessons learned
 

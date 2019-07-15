@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from matplotlib.pyplot import hist, show, legend, plot, subplot, ylim, title
 
+from sac import train
 from sac.model import SACModel
 from sac.policies import TanhDiagonalGaussianPolicy, DiagonalGaussianSample, TanhDiagonalGaussianLogProb, \
     EPS
@@ -11,6 +12,12 @@ from sac.utils import tf_disable_warnings, tf_disable_deprecation_warnings
 
 tf_disable_warnings()
 tf_disable_deprecation_warnings()
+
+
+class SmokeTests(unittest.TestCase):
+    @staticmethod
+    def test():
+        train.ex.run(config_updates={'train_n_steps': 10})
 
 
 class UnitTests(unittest.TestCase):
