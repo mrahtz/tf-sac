@@ -92,7 +92,7 @@ tanh reaches the limit of float32 precision surprisingly quickly:
 ```
 
 Be really careful if you need to tanh something and then later arctanh it,
-or you'll get arithmetic errors.
+or you'll get numerical errors.
 
 ### Keras
 
