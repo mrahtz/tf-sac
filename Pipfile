@@ -7,7 +7,7 @@ verify_ssl = true
 matplotlib = "*"
 
 [packages]
-tensorflow = "==1.13.1"
+tensorflow = "==1.15.4"
 easy-tf-log = "==1.10"
 sacred = "==0.7.5"
 gym = "==0.13.0"
